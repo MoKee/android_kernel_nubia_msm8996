@@ -159,6 +159,7 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_DMA_BI_DIR,
 	MDSS_QUIRK_MIN_BUS_VOTE,
 	MDSS_QUIRK_NEED_SECURE_MAP,
+	MDSS_QUIRK_FMT_PACK_PATTERN,
 	MDSS_QUIRK_MAX,
 };
 
@@ -310,6 +311,7 @@ struct mdss_data_type {
 	bool has_pixel_ram;
 	bool needs_hist_vote;
 	bool has_ubwc;
+	bool has_wb_ubwc;
 
 	u32 default_ot_rd_limit;
 	u32 default_ot_wr_limit;
