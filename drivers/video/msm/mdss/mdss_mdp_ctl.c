@@ -4105,10 +4105,11 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 					ctl->mixer_left->height};
 		}
 
-		if (ctl->mixer_right)
+		if (ctl->mixer_right) {
 			*r_roi = (struct mdss_rect) {0, 0,
 					ctl->mixer_right->width,
 					ctl->mixer_right->height};
+		}
 	}
 
 	previous_frame_pu_type = mdss_mdp_get_pu_type(ctl);
