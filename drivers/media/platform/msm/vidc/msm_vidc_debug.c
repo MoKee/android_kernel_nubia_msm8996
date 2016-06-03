@@ -268,7 +268,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	int i, j;
 
 	if (!inst || !core) {
-		dprintk(VIDC_ERR, "Invalid params, core: %p inst %p\n",
+		dprintk(VIDC_ERR, "Invalid params, core: %pK inst %pK\n",
 				core, inst);
 		return 0;
 	}
