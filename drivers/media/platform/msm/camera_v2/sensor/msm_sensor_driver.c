@@ -25,6 +25,12 @@
 #define SENSOR_MAX_MOUNTANGLE (360)
 
 static struct v4l2_file_operations msm_sensor_v4l2_subdev_fops;
+
+// ZTEMT: fuyipeng add for support 4lane imx179 ---start
+static unsigned char g_pcb_version = '0';
+extern void ztemt_get_hw_pcb_version(char *);
+// ZTEMT: fuyipeng add for support 4lane imx179 ---end
+
 static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev);
 
 /* Static declaration */
@@ -640,6 +646,21 @@ static void msm_sensor_fill_sensor_info(struct msm_sensor_ctrl_t *s_ctrl,
 	strlcpy(entity_name, s_ctrl->msm_sd.sd.entity.name, MAX_SENSOR_NAME);
 }
 
+// ZTEMT: fuyipeng add for support 4lane imx179 ---start
+static char get_pcb_version(void) {
+	char pcb_version[10] = "";
+	ztemt_get_hw_pcb_version(pcb_version);
+	pcb_version[9] ='\0';
+
+	if(!strncmp(pcb_version,"unknow",strlen("unknow")) || *(pcb_version+3) < 'A' ||*(pcb_version+3) > 'I' ){
+		return '0';
+	}
+	else{
+		return *(pcb_version+3);
+	}
+}
+// ZTEMT: fuyipeng add for support 4lane imx179 ---end
+
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_sensor_info_t *probed_info, char *entity_name)
@@ -652,6 +673,26 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 	unsigned long                        mount_pos = 0;
 	uint32_t                             is_yuv;
+
+	//ZTEMT: guxiaodong add for sunwin adapt -----start
+	struct msm_camera_i2c_reg_array zte_opt_reg_arr[] = {
+		{0x0100, 0x00, 0x00},
+		{0x3382, 0x05, 0x00},
+		{0x3383, 0xA0, 0x00},
+		{0x3368, 0x18, 0x00},
+		{0x3369, 0x00, 0x00},
+		{0x3380, 0x08, 0x00},
+		{0x3400, 0x01, 0x00},
+	};
+	struct msm_camera_i2c_reg_setting zte_opt_init_reg =
+	{
+		.reg_setting = zte_opt_reg_arr,
+		.size = ARRAY_SIZE(zte_opt_reg_arr),
+		.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
+		.data_type = MSM_CAMERA_I2C_BYTE_DATA,
+		.delay = 0,
+	};
+	//ZTEMT: guxiaodong add for sunwin adapt -----end
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -746,6 +787,26 @@ int32_t msm_sensor_driver_probe(void *setting,
 	CDBG("power up size %d power down size %d\n",
 		slave_info->power_setting_array.size,
 		slave_info->power_setting_array.size_down);
+
+	// ZTEMT: fuyipeng add for support 4lane imx179 ---start
+	if(slave_info->camera_id == CAMERA_1) {
+		if(slave_info->sensor_name && !strncmp(slave_info->sensor_name, "imx179", strlen("imx179"))){//Only imx179 need to match with PCB
+			if( g_pcb_version >= 'B' && g_pcb_version <= 'I' && !strcmp(slave_info->sensor_name, "imx179_4lane")){
+				pr_err("pcb match success  pcb_version=%c  sensor = %s\n", g_pcb_version, slave_info->sensor_name);
+			}
+			else if(g_pcb_version == 'A' && !strcmp(slave_info->sensor_name, "imx179")){
+				pr_err("pcb match success  pcb_version=%c  sensor = %s\n", g_pcb_version, slave_info->sensor_name);
+			}
+			else if(g_pcb_version == '0' && !strcmp(slave_info->sensor_name, "imx179_4lane")){
+				pr_err("get pcb_version failed,try to probe default sensor = imx179_4lane");
+			}
+			else{
+				pr_err("pcb match fail pcb_version=%c  sensor = %s\n", g_pcb_version, slave_info->sensor_name);
+				goto free_slave_info;
+			}
+		}
+	}
+	// ZTEMT: fuyipeng add for support 4lane imx179 ---end
 
 	if (slave_info->is_init_params_valid) {
 		CDBG("position %d",
@@ -940,6 +1001,25 @@ CSID_TG:
 		pr_err("failed: camera creat v4l2 rc %d", rc);
 		goto camera_power_down;
 	}
+	//ZTEMT: guxiaodong add for sunwin adapt -----start
+	pr_err("[GXD] : start to read module_id\n");
+	if(!strncmp(slave_info->sensor_name,"imx179_4lane",32) || !strncmp(slave_info->sensor_name,"imx179",32)) {
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(s_ctrl->sensor_i2c_client,
+			&zte_opt_init_reg);
+
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client,
+			0x3402, 0x00, MSM_CAMERA_I2C_BYTE_DATA);
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+			s_ctrl->sensor_i2c_client,
+			(0x3404+1),
+			&probed_info->module_id, MSM_CAMERA_I2C_BYTE_DATA);
+		if (rc < 0) {
+		pr_err("[GXD] %s Read module_id failed",
+			slave_info->sensor_name);
+		goto free_camera_info;
+		}
+	}
+	//ZTEMT: guxiaodong add for sunwin adapt -----end
 
 	/* Power down */
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
@@ -964,6 +1044,12 @@ CSID_TG:
 		((s_ctrl->sensordata->
 		sensor_info->sensor_mount_angle / 90) << 8);
 
+	/*ZTEMT: fengxun add for dual --------Start*/
+	if(slave_info->sensor_init_params.position == 0x100)
+	{
+		mount_pos |= (1U<<24);// 24th (starting from 0) bit tells its a MAIN or AUX camera
+	}
+	/*ZTEMT: fengxun add for dual --------End*/
 	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
 
 	/*Save sensor info*/
@@ -1351,6 +1437,7 @@ static int __init msm_sensor_driver_init(void)
 	int32_t rc = 0;
 
 	CDBG("%s Enter\n", __func__);
+	g_pcb_version = get_pcb_version();//ZTEMT: fuyipeng add 4lane imx179
 	rc = platform_driver_register(&msm_sensor_platform_driver);
 	if (rc)
 		pr_err("%s platform_driver_register failed rc = %d",

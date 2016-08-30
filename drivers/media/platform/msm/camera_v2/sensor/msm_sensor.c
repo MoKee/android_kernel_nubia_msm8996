@@ -225,9 +225,21 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
-	rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
-		sensor_i2c_client, slave_info->sensor_id_reg_addr,
-		&chipid, MSM_CAMERA_I2C_WORD_DATA);
+	/* ZTEMT: guxiaodong modify for imx179 and imx298 -------start*/
+	if(!strncmp(sensor_name, "imx179", 32) || !strncmp(sensor_name, "imx179_4lane", 32))
+	{
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+			sensor_i2c_client, slave_info->sensor_id_reg_addr,
+			&chipid, MSM_CAMERA_I2C_BYTE_DATA);
+	}
+	else
+	{
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+			sensor_i2c_client, slave_info->sensor_id_reg_addr,
+			&chipid, MSM_CAMERA_I2C_WORD_DATA);
+	}
+	/* ZTEMT: guxiaodong modify for imx179 and imx298 -------end*/
+
 	if (rc < 0) {
 		pr_err("%s: %s: read id failed\n", __func__, sensor_name);
 		return rc;

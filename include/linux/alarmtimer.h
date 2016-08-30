@@ -51,6 +51,9 @@ void alarm_restart(struct alarm *alarm);
 int alarm_try_to_cancel(struct alarm *alarm);
 int alarm_cancel(struct alarm *alarm);
 void set_power_on_alarm(void);
+#ifdef CONFIG_ZTEMT_PON_ALARM_DELTA
+void set_power_off_alarm(long secs, bool enable);
+#endif
 void power_on_alarm_init(void);
 enum alarmtimer_type clock2alarm(clockid_t clockid);
 

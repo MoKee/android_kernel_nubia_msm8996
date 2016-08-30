@@ -27,6 +27,9 @@
 
 #define	MSM_ACTUATOT_MAX_VREGS (10)
 #define	ACTUATOR_MAX_POLL_COUNT 10
+//ZTEMT: li.bin223 20150421 add for avoid kernel crash ----start
+#define	MSM_ACTUATOT_MAX_NAME (32)
+//ZTEMT: li.bin223 20150421 add for avoid kernel crash ----end
 
 struct msm_actuator_ctrl_t;
 
@@ -105,6 +108,11 @@ struct msm_actuator_ctrl_t {
 	struct msm_actuator_vreg vreg_cfg;
 	struct park_lens_data_t park_lens;
 	uint32_t max_code_size;
+	// ZTEMT: fuyipeng add for manual AF -----start
+	char act_name[MSM_ACTUATOT_MAX_NAME];
+	// ZTEMT: fuyipeng add for manual AF -----end
+	int infinity_pos; //ZTEMT:jixd add af infinity calibration
+	int ois_init; // ZTEMT: fuyipeng modify for OIS
 };
 
 #endif

@@ -817,13 +817,13 @@ config IKCONFIG_PROC
 config LOG_BUF_SHIFT
 	int "Kernel log buffer size (16 => 64KB, 17 => 128KB)"
 	range 12 21
-	default 17
+	default 19
 	depends on PRINTK
 	help
 	  Select the minimal kernel log buffer size as a power of 2.
 	  The final size is affected by LOG_CPU_MAX_BUF_SHIFT config
 	  parameter, see below. Any higher size also might be forced
-	  by "log_buf_len" boot parameter.
+	  by "log_buf_len" boot parameter. zte change to 19 from 17
 
 	  Examples:
 		     17 => 128 KB

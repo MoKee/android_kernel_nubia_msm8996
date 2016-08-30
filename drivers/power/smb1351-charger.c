@@ -560,6 +560,12 @@ static struct battery_status batt_s[] = {
 	[BATT_MISSING] = {0, 0, 0, 1, 0},
 };
 
+#ifdef CONFIG_ZTEMT_CHARGER
+    static int debug_mask_smb135x = 1;
+    module_param_named(debug_mask_smb1351, debug_mask_smb135x, int, S_IRUSR | S_IWUSR);
+    #define DBG_CHARGE(x...) do {if (debug_mask_smb135x) pr_info(">>ztemt_chg:>>  " x); } while (0)
+#endif
+
 static int smb1351_read_reg(struct smb1351_charger *chip, int reg, u8 *val)
 {
 	s32 ret;
@@ -713,6 +719,10 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		pr_debug("is_pre_chg true, current is %d\n", fastchg_current);
 	}
 
+#ifdef CONFIG_ZTEMT_CHARGER
+	DBG_CHARGE("is_pre_chg %d, fastchg_current is %dmA\n",is_pre_chg, fastchg_current);
+#endif
+
 	if (is_pre_chg) {
 		/* set prechg current */
 		for (i = ARRAY_SIZE(pre_chg_current) - 1; i >= 0; i--) {
@@ -781,6 +791,9 @@ static int smb1351_float_voltage_set(struct smb1351_charger *chip,
 	}
 
 	temp = (vfloat_mv - MIN_FLOAT_MV) / VFLOAT_STEP_MV;
+#ifdef CONFIG_ZTEMT_CHARGER
+	DBG_CHARGE("reg_val : %d, vfloat_mv is %dmV\n",temp, vfloat_mv);
+#endif
 
 	return smb1351_masked_write(chip, VFLOAT_REG, VFLOAT_MASK, temp);
 }
@@ -1235,7 +1248,11 @@ static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 	int i, rc = 0;
 	u8 reg = 0, mask = 0;
 
+#ifdef CONFIG_ZTEMT_CHARGER
+	DBG_CHARGE("USB current_ma = %dmA\n", current_ma);
+#else
 	pr_debug("USB current_ma = %d\n", current_ma);
+#endif
 
 	if (chip->chg_autonomous_mode) {
 		pr_debug("Charger in autonomous mode\n");

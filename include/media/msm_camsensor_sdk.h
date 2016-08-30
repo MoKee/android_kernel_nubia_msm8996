@@ -177,6 +177,11 @@ enum msm_flash_cfg_type_t {
 	CFG_FLASH_OFF,
 	CFG_FLASH_LOW,
 	CFG_FLASH_HIGH,
+	//ZTEMT: added by congshan for front camera flash start
+	CFG_LCD_BKL_NORM,
+	CFG_LCD_BKL_LOW,
+	CFG_LCD_BKL_HIGH,
+	//ZTEMT: added by congshan for front camera flash end
 };
 
 enum msm_sensor_output_format_t {

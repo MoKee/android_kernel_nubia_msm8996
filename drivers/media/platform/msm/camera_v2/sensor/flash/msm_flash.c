@@ -18,6 +18,7 @@
 #include "msm_flash.h"
 #include "msm_camera_dt_util.h"
 #include "msm_cci.h"
+#include "../../../../../../video/msm/mdss/mdss_fb.h" //ZTEMT: added by congshan for front camera flash
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -993,6 +994,76 @@ static int32_t msm_flash_get_dt_data(struct device_node *of_node,
 }
 
 #ifdef CONFIG_COMPAT
+//ZTEMT: added by congshan for front camera flash start
+static int camera_lcd_mask = 0;
+static int camera_lcd_reg = 0;
+static int camera_lcd_wled = 0;
+
+extern struct msm_fb_data_type *zte_camera_mfd;
+
+int camera_lcd_bkl_handle(void)
+{
+	return camera_lcd_mask;
+}
+int get_camera_lcd_bkl_reg(void)
+{
+	return camera_lcd_reg;
+}
+int get_camera_lcd_bkl_wled(void)
+{
+	return camera_lcd_wled;
+}
+
+static void zte_camera_backlight(struct msm_fb_data_type *mfd, enum msm_flash_cfg_type_t value)
+{
+	struct mdss_panel_data *pdata;
+	int temp;
+
+	mutex_lock(&mfd->bl_lock);
+	if ((mfd->panel_power_state == MDSS_PANEL_POWER_OFF) || (NULL == mfd)) {
+		mutex_unlock(&mfd->bl_lock);
+		return;
+	}
+	pr_err ("%s value=%d bl_max=%d\n", __func__, value, mfd->panel_info->bl_max);
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		mutex_unlock(&mfd->bl_lock);
+		return;
+	}
+
+	switch (value) {
+	case CFG_LCD_BKL_NORM:
+		camera_lcd_mask = 0;
+		camera_lcd_reg = 0;
+		camera_lcd_wled = 0;
+		temp = mfd->bl_level_scaled;
+		break;
+	case CFG_LCD_BKL_LOW:
+		camera_lcd_mask = 1;
+		camera_lcd_reg = 0;
+		camera_lcd_wled = 0;
+		temp = mfd->panel_info->bl_max;
+		break;
+	case CFG_LCD_BKL_HIGH:
+		camera_lcd_mask = 1;
+		camera_lcd_reg = 1;
+		camera_lcd_wled = 1;
+		temp = mfd->panel_info->bl_max;
+		break;
+	default:
+		camera_lcd_mask = 0;
+		camera_lcd_reg = 0;
+		camera_lcd_wled = 0;
+		temp = mfd->bl_level_scaled;
+		break;
+	}
+	if (0 != mfd->bl_level_scaled)
+	    pdata->set_backlight(pdata, temp);
+	mutex_unlock(&mfd->bl_lock);
+}
+//ZTEMT: added by congshan for front camera flash end
+
 static long msm_flash_subdev_do_ioctl(
 	struct file *file, unsigned int cmd, void *arg)
 {
@@ -1029,6 +1100,13 @@ static long msm_flash_subdev_do_ioctl(
 		case CFG_FLASH_HIGH:
 			flash_data.cfg.settings = compat_ptr(u32->cfg.settings);
 			break;
+		//ZTEMT: added by congshan for front camera flash start
+		case CFG_LCD_BKL_NORM:
+		case CFG_LCD_BKL_LOW:
+		case CFG_LCD_BKL_HIGH:
+			zte_camera_backlight(zte_camera_mfd, flash_data.cfg_type);
+			break;
+		//ZTEMT: added by congshan for front camera flash end
 		case CFG_FLASH_INIT:
 			flash_data.cfg.flash_init_info = &flash_init_info;
 			if (copy_from_user(&flash_init_info32,
@@ -1051,6 +1129,11 @@ static long msm_flash_subdev_do_ioctl(
 				flash_init_info32.power_setting_array);
 			break;
 		default:
+			//ZTEMT: added by congshan for front camera flash start
+			camera_lcd_mask = 0;
+			camera_lcd_reg = 0;
+			camera_lcd_wled = 0;
+			//ZTEMT: added by congshan for front camera flash end
 			break;
 		}
 		break;

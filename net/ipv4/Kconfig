@@ -648,6 +648,9 @@ config TCP_CONG_CUBIC
 	depends on !TCP_CONG_ADVANCED
 	default y
 
+config MULTI_CHANNEL_ROUTER
+	tristate
+	default y
 config DEFAULT_TCP_CONG
 	string
 	default "bic" if DEFAULT_BIC

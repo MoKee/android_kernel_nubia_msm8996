@@ -1634,6 +1634,12 @@ static void account_for_uid(const struct sk_buff *skb,
 		}
 	}
 
+	//add by huangjunyuan for L+W statictis right
+	if(NF_INET_LOCAL_OUT == par->hooknum){
+		el_dev = skb_dst(skb)->dev;
+	}
+	//end add
+
 	if (unlikely(!el_dev)) {
 		pr_info("qtaguid[%d]: no par->in/out?!!\n", par->hooknum);
 	} else if (unlikely(!el_dev->name)) {

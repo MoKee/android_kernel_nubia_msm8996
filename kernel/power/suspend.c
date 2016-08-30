@@ -30,6 +30,7 @@
 #include <trace/events/power.h>
 #include <linux/compiler.h>
 #include <linux/wakeup_reason.h>
+#include <linux/delay.h>
 
 #include "power.h"
 

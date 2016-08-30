@@ -100,9 +100,16 @@ static struct cnss_fw_files FW_FILES_QCA6174_FW_1_3 = {
 static struct cnss_fw_files FW_FILES_QCA6174_FW_3_0 = {
 "qwlan30.bin", "bdwlan30.bin", "otp30.bin", "utf30.bin",
 "utfbd30.bin", "epping30.bin", "evicted30.bin"};
+static struct cnss_fw_files FW_FILES_QCA6174_FW_3_QORVO = {
+"qwlan30.bin", "qm48184.bin", "otp30.bin", "utf30.bin",
+"utfbd30.bin", "epping30.bin", "evicted30.bin"};
 static struct cnss_fw_files FW_FILES_DEFAULT = {
 "qwlan.bin", "bdwlan.bin", "otp.bin", "utf.bin",
 "utfbd.bin", "epping.bin", "evicted.bin"};
+
+extern const char* ztemt_get_hw_wifi(void);
+#define SFEFG77B_WIFI_FRONT_END_VERSION "wifi_samsung"
+#define QM48184_WIFI_FRONT_END_VERSION "wifi_qorvo"
 
 #define QCA6180_VENDOR_ID	(0x168C)
 #define QCA6180_DEVICE_ID	(0x0041)
@@ -910,6 +917,9 @@ static u8 cnss_get_pci_dev_bus_number(struct pci_dev *pdev)
 
 void cnss_setup_fw_files(u16 revision)
 {
+	const char *wifi_front_end;
+	wifi_front_end = ztemt_get_hw_wifi();
+
 	switch (revision) {
 
 	case QCA6174_FW_1_1:
@@ -955,8 +965,14 @@ void cnss_setup_fw_files(u16 revision)
 	case QCA6174_FW_3_2:
 		strlcpy(penv->fw_files.image_file, "qwlan30.bin",
 			CNSS_MAX_FILE_NAME);
-		strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
-			CNSS_MAX_FILE_NAME);
+
+		if(strncmp(SFEFG77B_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
+			strlcpy(penv->fw_files.board_data, "bdwlan30.bin",	CNSS_MAX_FILE_NAME);
+		else if(strncmp(QM48184_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
+			strlcpy(penv->fw_files.board_data, "qm48184.bin",CNSS_MAX_FILE_NAME);
+		else
+			strlcpy(penv->fw_files.board_data, "bdwlan30.bin",	CNSS_MAX_FILE_NAME);
+
 		strlcpy(penv->fw_files.otp_data, "otp30.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.utf_file, "utf30.bin",
@@ -994,8 +1010,11 @@ EXPORT_SYMBOL(cnss_get_fw_files);
 int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version)
 {
+	const char *wifi_front_end;
+
 	if (!pfw_files)
 		return -ENODEV;
+	wifi_front_end = ztemt_get_hw_wifi();
 
 	switch (target_version) {
 	case AR6320_REV1_VERSION:
@@ -1010,7 +1029,22 @@ int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 		break;
 	case AR6320_REV3_VERSION:
 	case AR6320_REV3_2_VERSION:
-		memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_0, sizeof(*pfw_files));
+		if(strncmp(SFEFG77B_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
+		{
+			memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_0, sizeof(*pfw_files));
+			pr_info("%s: Download SAMSUNG RF bin file successful\n", __func__);
+		}
+		else if(strncmp(QM48184_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
+		{
+			memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_QORVO, sizeof(*pfw_files));
+			pr_info("%s: Download QORVO RF bin file successful\n", __func__);
+		}
+		else
+		{
+		    memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_0, sizeof(*pfw_files));
+			pr_err("%s: Download unkown RF bin file successful, %s \n", __func__, wifi_front_end);
+		}
+
 		break;
 	default:
 		memcpy(pfw_files, &FW_FILES_DEFAULT, sizeof(*pfw_files));

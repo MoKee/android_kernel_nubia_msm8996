@@ -38,6 +38,12 @@
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
 #define EMMC_DLOAD_TYPE		0x2
 
+/* this flag must be the same as in bootable/bootloader/lk/app/aboot/aboot.c */
+#ifdef CONFIG_ZTEMT_PANIC_BOOTMODE
+#define PANIC_HARD_RESET_MODE  0x07
+#define PANIC_MODE                0x77665523
+#endif
+
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 #define SCM_IO_DEASSERT_PS_HOLD		2
 #define SCM_WDOG_DEBUG_BOOT_PART	0x9
@@ -277,6 +283,18 @@ static void msm_restart_prepare(const char *cmd)
 			(in_panic || restart_mode == RESTART_DLOAD));
 #endif
 
+	//zte add printk
+	printk("msm_restart_prepare,download_mode=%x,in_panic=%x,restart_mode=%x\n", download_mode,in_panic,restart_mode);
+#ifdef CONFIG_ZTEMT_PANIC_BOOTMODE
+	if (in_panic && !get_dload_mode())
+	{
+		printk(KERN_EMERG "SET PANIC REBOOT REASON\n");
+		__raw_writel(PANIC_MODE, restart_reason);
+
+		printk(KERN_EMERG "SET PANIC HARD REBOOT REASON\n");
+		qpnp_pon_set_restart_reason(PANIC_HARD_RESET_MODE);
+	}
+#endif
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
 		if (get_dload_mode() ||
@@ -333,6 +351,13 @@ static void msm_restart_prepare(const char *cmd)
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
+#ifdef CONFIG_ZTEMT_PANIC_BOOTMODE
+	if (in_panic)
+	{
+		printk(KERN_EMERG "SET PANIC REBOOT REASON\n");
+		__raw_writel(PANIC_MODE, restart_reason);
+	}
+#endif
 
 	flush_cache_all();
 

@@ -85,6 +85,13 @@ config POWER_RESET_MSM
 	help
 	  Power off and restart support for Qualcomm boards.
 
+config ZTEMT_PANIC_BOOTMODE
+       bool "ztemt panic bootmode"
+       depends on POWER_RESET_MSM
+       default n
+       help
+         ztemt panic bootmode.
+
 config MSM_DLOAD_MODE
 	bool "Qualcomm download mode"
 	depends on POWER_RESET_MSM
@@ -161,4 +168,9 @@ config POWER_RESET_SYSCON
 	  Reboot support for generic SYSCON mapped register reset.
 
 endif
+config ZTEMT_RESTART
+       bool "ZTEMT restart"
+       default y
+       help
+         Support for the ZTEMT restart
 

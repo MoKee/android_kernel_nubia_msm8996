@@ -51,6 +51,10 @@ struct msm_mi2s_pdata {
 	u16 rx_sd_lines;
 	u16 tx_sd_lines;
 	u16 intf_id;
+#ifdef CONFIG_QCOM_MI2S
+	u16 slave;
+	u32 ext_mclk_rate;
+#endif
 };
 
 struct msm_i2s_data {

@@ -132,3 +132,8 @@ config AC97_BUS
 	  sound subsystem and other function drivers completely unrelated to
 	  sound although they're sharing the AC97 bus. Concerned drivers
 	  should "select" this.
+config ZTEMT_AUDIO
+    bool "AUDIO MACRO for NUBIA Z11 series"
+    default n
+    help
+      AUDIO MACRO for NUBIA Z11 series

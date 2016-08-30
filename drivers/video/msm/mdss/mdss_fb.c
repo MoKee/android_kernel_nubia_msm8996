@@ -54,7 +54,9 @@
 #include "mdss_debug.h"
 #include "mdss_smmu.h"
 #include "mdss_mdp.h"
-
+#ifdef CONFIG_NUBIA_LCD_BACKLIGHT_CURVE
+#include "mdss_dsi.h"
+#endif
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
 #else
@@ -252,6 +254,11 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 				      enum led_brightness value)
 {
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
+#ifdef CONFIG_NUBIA_LCD_BACKLIGHT_CURVE
+	struct mdss_panel_data *pdata = dev_get_platdata(&mfd->pdev->dev);
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+#endif
 	int bl_lvl;
 
 	if (mfd->boot_notification_led) {
@@ -261,7 +268,11 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 	if (value > mfd->panel_info->brightness_max)
 		value = mfd->panel_info->brightness_max;
-
+#ifdef CONFIG_NUBIA_LCD_BACKLIGHT_CURVE
+	pr_debug("before nubia transe backlight, value = %d",value);
+	value = ctrl_pdata->backlight_curve[value];
+	pr_debug("after nubia transe backlight, value = %d",value);
+#endif
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
 	MDSS_BRIGHT_TO_BL(bl_lvl, value, mfd->panel_info->bl_max,
@@ -1036,6 +1047,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
 	struct mdss_panel_data *pdata;
+#ifdef CONFIG_NUBIA_LCD_BACKLIGHT_CURVE
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+#endif
 	struct fb_info *fbi;
 	int rc;
 
@@ -1045,7 +1059,12 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	pdata = dev_get_platdata(&pdev->dev);
 	if (!pdata)
 		return -EPROBE_DEFER;
-
+#ifdef CONFIG_NUBIA_LCD_BACKLIGHT_CURVE
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+                               panel_data);
+	if (!ctrl_pdata)
+                return -EPROBE_DEFER;
+#endif
 	if (!mdp_instance) {
 		pr_err("mdss mdp resource not initialized yet\n");
 		return -ENODEV;
@@ -1071,6 +1090,11 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
 
 	mfd->ext_ad_ctrl = -1;
+#ifdef CONFIG_NUBIA_LCD_BACKLIGHT_CURVE
+	pr_debug("nubia before transe backlight mfd->bl_level = %d",mfd->bl_level);
+	mfd->bl_level = ctrl_pdata->backlight_curve[mfd->bl_level];
+	pr_debug("nubia after transe backlight ,mfd->bl_level = %d",mfd->bl_level);
+#endif
 	if (mfd->panel_info && mfd->panel_info->brightness_max > 0)
 		MDSS_BRIGHT_TO_BL(mfd->bl_level, backlight_led.brightness,
 		mfd->panel_info->bl_max, mfd->panel_info->brightness_max);
@@ -1489,6 +1513,10 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 
 	(*bl_lvl) = temp;
 }
+//ZTEMT: added by nubia camera for front camera flash  start
+struct msm_fb_data_type *zte_camera_mfd;
+extern int camera_lcd_bkl_handle(void);
+//ZTEMT: added by nubia camera for front camera flash end
 
 /* must call this function from within mfd->bl_lock */
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
@@ -1508,6 +1536,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	} else {
 		mfd->unset_bl_level = 0;
 	}
+	zte_camera_mfd = mfd; //ZTEMT: added by nubia camera for front camera flash 
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
@@ -1531,7 +1560,8 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 			if (mfd->bl_level != bkl_lvl)
 				bl_notify_needed = true;
 			pr_debug("backlight sent to panel :%d\n", temp);
-			pdata->set_backlight(pdata, temp);
+			if(!camera_lcd_bkl_handle() || (0 == temp)) //ZTEMT: added by nubia camera for front camera flash 
+			    pdata->set_backlight(pdata, temp);
 			mfd->bl_level = bkl_lvl;
 			mfd->bl_level_scaled = temp;
 		}
@@ -1568,6 +1598,7 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 			pdata->set_backlight(pdata, temp);
 			mfd->bl_level_scaled = mfd->unset_bl_level;
 			mfd->allow_bl_update = true;
+			zte_camera_mfd = mfd; //ZTEMT: added by nubia camera for front camera flash
 		}
 	}
 	mutex_unlock(&mfd->bl_lock);

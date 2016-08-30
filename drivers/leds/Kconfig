@@ -527,6 +527,15 @@ config LEDS_SYSCON
 	  devices. This will only work with device tree enabled
 	  devices.
 
+#Nubia Add 
+config ZTEMT_BREATH_LEDS
+	tristate "LED support for ZTEMT BREATH LED"
+	depends on LEDS_CLASS
+	default y
+	help
+	  This option enables support for the ZTEMT RGB LED connected
+	  Say Y to enable support for the ZTEMT LED.
+
 config LEDS_VERSATILE
 	tristate "LED support for the ARM Versatile and RealView"
 	depends on ARCH_REALVIEW || ARCH_VERSATILE

@@ -595,10 +595,10 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 		rc = PTR_ERR(rtc_dd->rtc);
 		goto fail_rtc_enable;
 	}
-
+#ifndef CONFIG_ZTEMT_PON_ALARM_DELTA
 	/* Init power_on_alarm after adding rtc device */
 	power_on_alarm_init();
-
+#endif
 	/* Request the alarm IRQ */
 	rc = request_any_context_irq(rtc_dd->rtc_alarm_irq,
 				 qpnp_alarm_trigger, IRQF_TRIGGER_RISING,

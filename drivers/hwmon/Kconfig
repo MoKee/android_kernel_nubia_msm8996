@@ -1736,4 +1736,19 @@ config SENSORS_ATK0110
 
 endif # ACPI
 
+################################################# ZTEMT_TYPE_C_CTL START
+menuconfig ZTEMT_TYPE_C_CTL
+	tristate "ZTEMT_TYPE_C_CTL DEVICE"
+	depends on I2C
+	default n
+
+if ZTEMT_TYPE_C_CTL
+
+source drivers/hwmon/sii7033/Kconfig
+
+endif
+################################################# ZTEMT_TYPE_C_CTL END
+
+source drivers/hwmon/nubia_sensors/Kconfig
+
 endif # HWMON

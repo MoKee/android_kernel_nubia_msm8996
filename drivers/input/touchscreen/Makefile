@@ -6,6 +6,9 @@
 
 wm97xx-ts-y := wm97xx-core.o
 
+obj-$(CONFIG_NUBIA_TOUCHSCREEN_GT1X) += gt1x/
+obj-$(CONFIG_TOUCHSCREEN_CYPRESS_TMA568)        += cyttsp5/
+obj-$(CONFIG_TOUCHSCREEN_NUBIA_SYNAPTICS_DSX) += nubia_synaptics_dsx/
 obj-$(CONFIG_OF_TOUCHSCREEN)		+= of_touchscreen.o
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_AD7877)	+= ad7877.o
@@ -63,7 +66,6 @@ obj-$(CONFIG_TOUCHSCREEN_ST1232)	+= st1232.o
 obj-$(CONFIG_TOUCHSCREEN_STMPE)		+= stmpe-ts.o
 obj-$(CONFIG_TOUCHSCREEN_SUN4I)		+= sun4i-ts.o
 obj-$(CONFIG_TOUCHSCREEN_SUR40)		+= sur40.o
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_v21) += synaptics_dsx/
 obj-$(CONFIG_TOUCHSCREEN_TI_AM335X_TSC)	+= ti_am335x_tsc.o
 obj-$(CONFIG_TOUCHSCREEN_TOUCHIT213)	+= touchit213.o
 obj-$(CONFIG_TOUCHSCREEN_TOUCHRIGHT)	+= touchright.o

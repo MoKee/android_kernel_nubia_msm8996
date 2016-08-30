@@ -51,6 +51,7 @@ source "net/packet/Kconfig"
 source "net/unix/Kconfig"
 source "net/xfrm/Kconfig"
 source "net/iucv/Kconfig"
+source "net/multichannel/Kconfig"
 
 config INET
 	bool "TCP/IP networking"

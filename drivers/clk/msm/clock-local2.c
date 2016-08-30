@@ -264,6 +264,77 @@ static void rcg_clk_disable(struct clk *c)
 	rcg_clear_force_enable(rcg);
 }
 
+static int prepare_enable_rcg_srcs(struct clk *c, struct clk *curr,
+					struct clk *new, unsigned long *flags)
+{
+	int rc;
+
+	rc = clk_prepare(curr);
+	if (rc)
+		return rc;
+
+	if (c->prepare_count) {
+		rc = clk_prepare(new);
+		if (rc)
+			goto err_new_src_prepare;
+	}
+
+	rc = clk_prepare(new);
+	if (rc)
+		goto err_new_src_prepare2;
+
+	spin_lock_irqsave(&c->lock, *flags);
+	rc = clk_enable(curr);
+	if (rc) {
+		spin_unlock_irqrestore(&c->lock, *flags);
+		goto err_curr_src_enable;
+	}
+
+	if (c->count) {
+		rc = clk_enable(new);
+		if (rc) {
+			spin_unlock_irqrestore(&c->lock, *flags);
+			goto err_new_src_enable;
+		}
+	}
+
+	rc = clk_enable(new);
+	if (rc) {
+		spin_unlock_irqrestore(&c->lock, *flags);
+		goto err_new_src_enable2;
+	}
+	return 0;
+
+err_new_src_enable2:
+	if (c->count)
+		clk_disable(new);
+err_new_src_enable:
+	clk_disable(curr);
+err_curr_src_enable:
+	clk_unprepare(new);
+err_new_src_prepare2:
+	if (c->prepare_count)
+		clk_unprepare(new);
+err_new_src_prepare:
+	clk_unprepare(curr);
+	return rc;
+}
+
+static void disable_unprepare_rcg_srcs(struct clk *c, struct clk *curr,
+					struct clk *new, unsigned long *flags)
+{
+	clk_disable(new);
+	clk_disable(curr);
+	if (c->count)
+		clk_disable(curr);
+	spin_unlock_irqrestore(&c->lock, *flags);
+
+	clk_unprepare(new);
+	clk_unprepare(curr);
+	if (c->prepare_count)
+		clk_unprepare(curr);
+}
+
 static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct clk_freq_tbl *cf, *nf;
@@ -285,7 +356,17 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 			return rc;
 	}
 
-	rc = __clk_pre_reparent(c, nf->src_clk, &flags);
+	if (rcg->non_local_control_timeout) {
+		/*
+		 * __clk_pre_reparent only enables the RCG source if the SW
+		 * count for the RCG is non-zero. We need to make sure that
+		 * both PLL sources are ON before force turning on the RCG.
+		 */
+		rc = prepare_enable_rcg_srcs(c, cf->src_clk, nf->src_clk,
+								&flags);
+	} else
+		rc = __clk_pre_reparent(c, nf->src_clk, &flags);
+
 	if (rc)
 		return rc;
 
@@ -318,7 +399,11 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 	rcg->current_freq = nf;
 	c->parent = nf->src_clk;
 
-	__clk_post_reparent(c, cf->src_clk, &flags);
+	if (rcg->non_local_control_timeout)
+		disable_unprepare_rcg_srcs(c, cf->src_clk, nf->src_clk,
+								&flags);
+	else
+		__clk_post_reparent(c, cf->src_clk, &flags);
 
 	return 0;
 }
