@@ -2187,6 +2187,10 @@ static int get_prop_capacity(struct fg_chip *chip)
 	int msoc, rc;
 	bool vbatt_low_sts;
 
+	#ifdef CONFIG_ZTEMT_FUEL_GAUGE
+	int batt_vol = get_sram_prop_now(chip, FG_DATA_VOLTAGE)/1000;
+	#endif
+
 	if (chip->use_last_soc && chip->last_soc) {
 		if (chip->last_soc == FULL_SOC_RAW)
 			return FULL_CAPACITY;
@@ -2194,10 +2198,6 @@ static int get_prop_capacity(struct fg_chip *chip)
 				(FULL_CAPACITY - 2),
 				FULL_SOC_RAW - 2) + 1;
 	}
-
-	#ifdef CONFIG_ZTEMT_FUEL_GAUGE
-	int batt_vol = get_sram_prop_now(chip, FG_DATA_VOLTAGE)/1000;
-	#endif
 
 	if (chip->battery_missing)
 		return MISSING_CAPACITY;
