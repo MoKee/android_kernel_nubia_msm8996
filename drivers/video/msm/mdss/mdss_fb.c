@@ -3717,7 +3717,7 @@ static int mdss_fb_set_par(struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct fb_var_screeninfo *var = &info->var;
-	int old_imgType;
+	int old_imgType, old_format;
 	int ret = 0;
 
 	ret = mdss_fb_pan_idle(mfd);
@@ -3799,6 +3799,12 @@ static int mdss_fb_set_par(struct fb_info *info)
 	if (!info->fix.smem_start)
 		mfd->fbi->fix.smem_len = PAGE_ALIGN(mfd->fbi->fix.line_length *
 				mfd->fbi->var.yres) * mfd->fb_page;
+
+	old_format = mdss_grayscale_to_mdp_format(var->grayscale);
+	if (!IS_ERR_VALUE(old_format)) {
+		if (old_format != mfd->panel_info->out_format)
+			mfd->panel_reconfig = true;
+	}
 
 	if (mfd->panel_reconfig || (mfd->fb_imgType != old_imgType)) {
 		mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
@@ -3929,8 +3935,8 @@ static int mdss_fb_async_position_update_ioctl(struct fb_info *info,
 	input_layer_list = update_pos.input_layers;
 
 	layer_cnt = update_pos.input_layer_cnt;
-	if (!layer_cnt) {
-		pr_err("no async layers to update\n");
+	if ((!layer_cnt) || (layer_cnt > MAX_LAYER_COUNT)) {
+		pr_err("invalid async layers :%d to update\n", layer_cnt);
 		return -EINVAL;
 	}
 
