@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -585,7 +585,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (gpudev->preemption_pre_ibsubmit &&
 				adreno_is_preemption_enabled(adreno_dev))
-		total_sizedwords += 20;
+		total_sizedwords += 22;
 
 	if (gpudev->preemption_post_ibsubmit &&
 				adreno_is_preemption_enabled(adreno_dev))
@@ -1144,8 +1144,22 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 		/* Put the timevalues in the profiling buffer */
 		if (cmdbatch_user_profiling) {
-			profile_buffer->wall_clock_s = time->utime.tv_sec;
-			profile_buffer->wall_clock_ns = time->utime.tv_nsec;
+			/*
+			* Return kernel clock time to the the client
+			* if requested
+			*/
+			if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING_KTIME) {
+				uint64_t secs = time->ktime;
+
+				profile_buffer->wall_clock_ns =
+					do_div(secs, NSEC_PER_SEC);
+				profile_buffer->wall_clock_s = secs;
+			} else {
+				profile_buffer->wall_clock_s =
+					time->utime.tv_sec;
+				profile_buffer->wall_clock_ns =
+					time->utime.tv_nsec;
+			}
 			profile_buffer->gpu_ticks_queued = time->ticks;
 		}
 	}
