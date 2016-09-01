@@ -1,4 +1,4 @@
-dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v3.0-pmi8996-mtp-NX531J.dtb
+dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v3.0-pmi8996-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-rumi.dtb
