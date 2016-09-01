@@ -5423,7 +5423,7 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad,
 						struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
-	u32 temp;
+	u32 temp, cfg_buf_mode;
 	u32 frame_start, frame_end, procs_start, procs_end, tile_ctrl;
 	u32 num;
 	int side;
@@ -5509,20 +5509,22 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad,
 			}
 			procs_end -= 1;
 			frame_end -= 1;
+			cfg_buf_mode = 0x3;
 		} else {
 			frame_start = 0x0;
 			frame_end = 0xFFFF;
 			procs_start = 0x0;
 			procs_end = 0xFFFF;
 			tile_ctrl = 0x0;
+			cfg_buf_mode = 0x2;
 		}
-
 
 		writel_relaxed(frame_start, base + MDSS_MDP_REG_AD_FRAME_START);
 		writel_relaxed(frame_end, base + MDSS_MDP_REG_AD_FRAME_END);
 		writel_relaxed(procs_start, base + MDSS_MDP_REG_AD_PROCS_START);
 		writel_relaxed(procs_end, base + MDSS_MDP_REG_AD_PROCS_END);
 		writel_relaxed(tile_ctrl, base + MDSS_MDP_REG_AD_TILE_CTRL);
+		writel_relaxed(cfg_buf_mode , base + MDSS_MDP_REG_AD_CFG_BUF);
 	}
 }
 
@@ -5904,11 +5906,6 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	if ((PP_AD_STATE_RUN & ad->state) && ad->calc_itr > 0)
 		ad->calc_itr--;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	ad->last_str = 0xFF & readl_relaxed(base + MDSS_MDP_REG_AD_STR_OUT);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	if (mdata->ad_debugen)
-		pr_debug("itr number %d str %d\n", ad->calc_itr, ad->last_str);
 	mdp5_data->ad_events++;
 	sysfs_notify_dirent(mdp5_data->ad_event_sd);
 	if (!ad->calc_itr) {
@@ -5916,6 +5913,11 @@ static void pp_ad_calc_worker(struct work_struct *work)
 		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
 	}
 	mutex_unlock(&ad->lock);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	ad->last_str = 0xFF & readl_relaxed(base + MDSS_MDP_REG_AD_STR_OUT);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	pr_debug("itr number %d str %d\n", ad->calc_itr, ad->last_str);
 }
 
 #define PP_AD_LUT_LEN 33

@@ -247,7 +247,8 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
 	int output_port_mbs, capture_port_mbs;
-	int fps, rc;
+	int rc;
+	u32 fps;
 	struct v4l2_control ctrl;
 
 	output_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
@@ -259,6 +260,11 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	rc = msm_comm_g_ctrl(inst, &ctrl);
 	if (!rc && ctrl.value) {
 		fps = (ctrl.value >> 16) ? ctrl.value >> 16 : 1;
+		/*
+		 * Check if operating rate is less than fps.
+		 * If Yes, then use fps to scale the clocks
+		*/
+		fps = max(fps, inst->prop.fps);
 		return max(output_port_mbs, capture_port_mbs) * fps;
 	} else
 		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
@@ -1633,6 +1639,36 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	return vb;
 }
 
+
+static void handle_dynamic_input_buffer(struct msm_vidc_inst *inst,
+		ion_phys_addr_t device_addr)
+{
+	struct buffer_info *binfo = NULL, *temp = NULL;
+
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		binfo = device_to_uvaddr(&inst->registeredbufs, device_addr);
+		if (!binfo) {
+			dprintk(VIDC_ERR,
+				"%s buffer not found in registered list\n",
+				__func__);
+			return;
+		}
+		dprintk(VIDC_DBG,
+			"EBD fd[0] = %d -> EBD_ref_released, addr: %pa\n",
+			binfo->fd[0], &device_addr);
+
+		mutex_lock(&inst->registeredbufs.lock);
+		list_for_each_entry(temp, &inst->registeredbufs.list,
+				list) {
+			if (temp == binfo) {
+				binfo->pending_deletion = true;
+				break;
+			}
+		}
+		mutex_unlock(&inst->registeredbufs.lock);
+	}
+}
+
 static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
@@ -1651,6 +1687,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
+
+	handle_dynamic_input_buffer(inst, response->input_done.packet_buffer);
 
 	vb = get_vb_from_device_addr(&inst->bufq[OUTPUT_PORT],
 			response->input_done.packet_buffer);
@@ -1750,10 +1788,6 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 
 	if (cnt < 0)
 		return cnt;
-
-	rc = output_buffer_cache_invalidate(inst, binfo);
-	if (rc)
-		return rc;
 
 	if (release_buf) {
 		/*
