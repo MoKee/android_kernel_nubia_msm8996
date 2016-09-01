@@ -1003,9 +1003,16 @@ static int mdss_dsi_debugfs_setup(struct mdss_panel_data *pdata,
 static int mdss_dsi_debugfs_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc;
-	struct mdss_panel_data *pdata = &ctrl_pdata->panel_data;
-	struct mdss_panel_info panel_info = pdata->panel_info;
+	struct mdss_panel_data *pdata;
+	struct mdss_panel_info panel_info;
 
+	if (!ctrl_pdata) {
+		pr_warn_once("%s: Invalid pdata!\n", __func__);
+		return -EINVAL;
+	}
+
+	pdata = &ctrl_pdata->panel_data;
+	panel_info = pdata->panel_info;
 	rc = mdss_dsi_debugfs_setup(pdata, panel_info.debugfs_info->root);
 	if (rc) {
 		pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
@@ -1375,14 +1382,14 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		goto end;
 	}
 
-	ret = mdss_dsi_set_clk_src(ctrl_pdata);
-	if (ret) {
-		pr_err("%s: failed to set clk src. rc=%d\n", __func__, ret);
+	if (mdss_panel_is_power_on(cur_power_state)) {
+		pr_debug("%s: dsi_on from panel low power state\n", __func__);
 		goto end;
 	}
 
-	if (mdss_panel_is_power_on(cur_power_state)) {
-		pr_debug("%s: dsi_on from panel low power state\n", __func__);
+	ret = mdss_dsi_set_clk_src(ctrl_pdata);
+	if (ret) {
+		pr_err("%s: failed to set clk src. rc=%d\n", __func__, ret);
 		goto end;
 	}
 
@@ -2755,7 +2762,9 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 					for (i = 0; ((str2 + i) < str1) &&
 					     i < (MDSS_MAX_PANEL_LEN - 1); i++)
 						cfg_np_name[i] = *(str2 + i);
-					cfg_np_name[i] = 0;
+					if ((i >= 0)
+						&& (i < MDSS_MAX_PANEL_LEN))
+						cfg_np_name[i] = 0;
 				} else {
 					strlcpy(cfg_np_name, str2,
 						MDSS_MAX_PANEL_LEN);
@@ -2937,7 +2946,7 @@ static int mdss_dsi_cont_splash_config(struct mdss_panel_info *pinfo,
 				       struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	void *clk_handle;
-	int rc = 0, data;
+	int rc = 0;
 
 	if (pinfo->cont_splash_enabled) {
 		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),
@@ -2959,12 +2968,9 @@ static int mdss_dsi_cont_splash_config(struct mdss_panel_info *pinfo,
 				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 		ctrl_pdata->is_phyreg_enabled = 1;
 		mdss_dsi_get_hw_revision(ctrl_pdata);
-		if ((ctrl_pdata->shared_data->hw_rev >= MDSS_DSI_HW_REV_103)
-			&& (pinfo->type == MIPI_CMD_PANEL)) {
-			data = MIPI_INP(ctrl_pdata->ctrl_base + 0x1b8);
-			if (data & BIT(16))
-				ctrl_pdata->burst_mode_enabled = true;
-		}
+
+		if (pinfo->type == MIPI_CMD_PANEL)
+			mdss_dsi_set_burst_mode(ctrl_pdata);
 	} else {
 		pinfo->panel_power_state = MDSS_PANEL_POWER_OFF;
 	}

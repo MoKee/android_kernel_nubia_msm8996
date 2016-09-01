@@ -23,9 +23,6 @@
 #include "wmi.h"
 #include "boot_loader.h"
 
-#define WAIT_FOR_DISCONNECT_TIMEOUT_MS 2000
-#define WAIT_FOR_DISCONNECT_INTERVAL_MS 10
-
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, S_IRUGO);
 MODULE_PARM_DESC(debug_fw, " do not perform card reset. For FW debug");
@@ -438,10 +435,11 @@ int wil_priv_init(struct wil6210_priv *wil)
 	for (i = 0; i < WIL6210_MAX_CID; i++)
 		spin_lock_init(&wil->sta[i].tid_rx_lock);
 
+	for (i = 0; i < WIL6210_MAX_TX_RINGS; i++)
+		spin_lock_init(&wil->vring_tx_data[i].lock);
+
 	mutex_init(&wil->mutex);
 	mutex_init(&wil->wmi_mutex);
-	mutex_init(&wil->back_rx_mutex);
-	mutex_init(&wil->back_tx_mutex);
 	mutex_init(&wil->probe_client_mutex);
 
 	init_completion(&wil->wmi_ready);
@@ -454,13 +452,9 @@ int wil_priv_init(struct wil6210_priv *wil)
 	INIT_WORK(&wil->disconnect_worker, wil_disconnect_worker);
 	INIT_WORK(&wil->wmi_event_worker, wmi_event_worker);
 	INIT_WORK(&wil->fw_error_worker, wil_fw_error_worker);
-	INIT_WORK(&wil->back_rx_worker, wil_back_rx_worker);
-	INIT_WORK(&wil->back_tx_worker, wil_back_tx_worker);
 	INIT_WORK(&wil->probe_client_worker, wil_probe_client_worker);
 
 	INIT_LIST_HEAD(&wil->pending_wmi_ev);
-	INIT_LIST_HEAD(&wil->back_rx_pending);
-	INIT_LIST_HEAD(&wil->back_tx_pending);
 	INIT_LIST_HEAD(&wil->probe_client_pending);
 	spin_lock_init(&wil->wmi_ev_lock);
 	init_waitqueue_head(&wil->wq);
@@ -520,10 +514,6 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 	wil6210_disconnect(wil, NULL, WLAN_REASON_DEAUTH_LEAVING, false);
 	mutex_unlock(&wil->mutex);
 	wmi_event_flush(wil);
-	wil_back_rx_flush(wil);
-	cancel_work_sync(&wil->back_rx_worker);
-	wil_back_tx_flush(wil);
-	cancel_work_sync(&wil->back_tx_worker);
 	wil_probe_client_flush(wil);
 	cancel_work_sync(&wil->probe_client_worker);
 	destroy_workqueue(wil->wq_service);
@@ -637,6 +627,7 @@ void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
 static int wil_get_bl_info(struct wil6210_priv *wil)
 {
 	struct net_device *ndev = wil_to_ndev(wil);
+	struct wiphy *wiphy = wil_to_wiphy(wil);
 	union {
 		struct bl_dedicated_registers_v0 bl0;
 		struct bl_dedicated_registers_v1 bl1;
@@ -681,6 +672,7 @@ static int wil_get_bl_info(struct wil6210_priv *wil)
 	}
 
 	ether_addr_copy(ndev->perm_addr, mac);
+	ether_addr_copy(wiphy->perm_addr, mac);
 	if (!is_valid_ether_addr(ndev->dev_addr))
 		ether_addr_copy(ndev->dev_addr, mac);
 
@@ -939,8 +931,7 @@ int wil_up(struct wil6210_priv *wil)
 
 int __wil_down(struct wil6210_priv *wil)
 {
-	int iter = WAIT_FOR_DISCONNECT_TIMEOUT_MS /
-			WAIT_FOR_DISCONNECT_INTERVAL_MS;
+	int rc;
 
 	WARN_ON(!mutex_is_locked(&wil->mutex));
 
@@ -964,22 +955,16 @@ int __wil_down(struct wil6210_priv *wil)
 	}
 
 	if (test_bit(wil_status_fwconnected, wil->status) ||
-	    test_bit(wil_status_fwconnecting, wil->status))
-		wmi_send(wil, WMI_DISCONNECT_CMDID, NULL, 0);
+	    test_bit(wil_status_fwconnecting, wil->status)) {
 
-	/* make sure wil is idle (not connected) */
-	mutex_unlock(&wil->mutex);
-	while (iter--) {
-		int idle = !test_bit(wil_status_fwconnected, wil->status) &&
-			   !test_bit(wil_status_fwconnecting, wil->status);
-		if (idle)
-			break;
-		msleep(WAIT_FOR_DISCONNECT_INTERVAL_MS);
+		mutex_unlock(&wil->mutex);
+		rc = wmi_call(wil, WMI_DISCONNECT_CMDID, NULL, 0,
+			      WMI_DISCONNECT_EVENTID, NULL, 0,
+			      WIL6210_DISCONNECT_TO_MS);
+		mutex_lock(&wil->mutex);
+		if (rc)
+			wil_err(wil, "timeout waiting for disconnect\n");
 	}
-	mutex_lock(&wil->mutex);
-
-	if (iter < 0)
-		wil_err(wil, "timeout waiting for idle FW/HW\n");
 
 	wil_reset(wil, false);
 

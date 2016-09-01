@@ -854,6 +854,10 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	perf->mdp_clk_rate = get_pipe_mdp_clk_rate(pipe, src, dst,
 		fps, v_total, flags);
 
+	if (pipe->flags & MDP_SOLID_FILL) {
+		perf->bw_overlap = 0;
+	}
+
 	if (mixer->ctl->intf_num == MDSS_MDP_NO_INTF ||
 		mdata->disable_prefill ||
 		mixer->ctl->disable_prefill ||
@@ -2997,9 +3001,11 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 		break;
 	case MDP_DUAL_LM_DUAL_DISPLAY:
 		sctl = mdss_mdp_get_split_ctl(ctl);
-		spinfo = &sctl->panel_data->panel_info;
-
-		__dsc_setup_dual_lm_dual_display(ctl, pinfo, sctl, spinfo);
+		if (sctl) {
+			spinfo = &sctl->panel_data->panel_info;
+			__dsc_setup_dual_lm_dual_display(ctl, pinfo, sctl,
+					spinfo);
+		}
 		break;
 	default:
 		/* pp_split is not supported yet */
@@ -3623,7 +3629,10 @@ void mdss_mdp_ctl_restore(bool locked)
 		if (sctl) {
 			mdss_mdp_ctl_restore_sub(sctl);
 			mdss_mdp_ctl_split_display_enable(1, ctl, sctl);
+		} else if (is_pingpong_split(ctl->mfd)) {
+			mdss_mdp_ctl_pp_split_display_enable(1, ctl);
 		}
+
 		if (ctl->ops.restore_fnc)
 			ctl->ops.restore_fnc(ctl, locked);
 	}
@@ -4007,9 +4016,11 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
 
-		mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
-		sctl->roi = sctl->mixer_left->roi;
-	} else if (is_dual_lm_single_display(ctl->mfd)) {
+		if (sctl) {
+			mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
+			sctl->roi = sctl->mixer_left->roi;
+		}
+	} else if (is_dual_lm_single_display(ctl->mfd) && ctl->mixer_right) {
 
 		mdss_mdp_set_mixer_roi(ctl->mixer_right, r_roi);
 
@@ -4032,8 +4043,10 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	 */
 	if (is_split_lm(ctl->mfd) && mdata->has_src_split &&
 	    (previous_frame_pu_type != current_frame_pu_type)) {
-		ctl->mixer_left->roi_changed = true;
-		ctl->mixer_right->roi_changed = true;
+		if (ctl->mixer_left)
+			ctl->mixer_left->roi_changed = true;
+		if (ctl->mixer_right)
+			ctl->mixer_right->roi_changed = true;
 	}
 }
 

@@ -51,7 +51,7 @@ static inline u32 WIL_GET_BITS(u32 x, int b0, int b1)
 
 #define WIL_TX_Q_LEN_DEFAULT		(4000)
 #define WIL_RX_RING_SIZE_ORDER_DEFAULT	(10)
-#define WIL_TX_RING_SIZE_ORDER_DEFAULT	(10)
+#define WIL_TX_RING_SIZE_ORDER_DEFAULT	(12)
 #define WIL_BCAST_RING_SIZE_ORDER_DEFAULT	(7)
 #define WIL_BCAST_MCS0_LIMIT		(1024) /* limit for MCS0 frame size */
 /* limit ring size in range [32..32k] */
@@ -92,6 +92,7 @@ static inline u32 wil_mtu2macbuf(u32 mtu)
 #define WIL6210_FW_RECOVERY_RETRIES	(5) /* try to recover this many times */
 #define WIL6210_FW_RECOVERY_TO	msecs_to_jiffies(5000)
 #define WIL6210_SCAN_TO		msecs_to_jiffies(10000)
+#define WIL6210_DISCONNECT_TO_MS (2000)
 #define WIL6210_RX_HIGH_TRSH_INIT		(0)
 #define WIL6210_RX_HIGH_TRSH_DEFAULT \
 				(1 << (WIL_RX_RING_SIZE_ORDER_DEFAULT - 3))
@@ -506,24 +507,6 @@ enum {
 	hw_capability_last
 };
 
-struct wil_back_rx {
-	struct list_head list;
-	/* request params, converted to CPU byte order - what we asked for */
-	u8 cidxtid;
-	u8 dialog_token;
-	u16 ba_param_set;
-	u16 ba_timeout;
-	u16 ba_seq_ctrl;
-};
-
-struct wil_back_tx {
-	struct list_head list;
-	/* request params, converted to CPU byte order - what we asked for */
-	u8 ringid;
-	u8 agg_wsize;
-	u16 agg_timeout;
-};
-
 struct wil_probe_client_req {
 	struct list_head list;
 	u64 cookie;
@@ -594,13 +577,6 @@ struct wil6210_priv {
 	spinlock_t wmi_ev_lock;
 	struct napi_struct napi_rx;
 	struct napi_struct napi_tx;
-	/* BACK */
-	struct list_head back_rx_pending;
-	struct mutex back_rx_mutex; /* protect @back_rx_pending */
-	struct work_struct back_rx_worker;
-	struct list_head back_tx_pending;
-	struct mutex back_tx_mutex; /* protect @back_tx_pending */
-	struct work_struct back_tx_worker;
 	/* keep alive */
 	struct list_head probe_client_pending;
 	struct mutex probe_client_mutex; /* protect @probe_client_pending */
@@ -760,11 +736,7 @@ int wmi_addba_rx_resp(struct wil6210_priv *wil, u8 cid, u8 tid, u8 token,
 int wil_addba_rx_request(struct wil6210_priv *wil, u8 cidxtid,
 			 u8 dialog_token, __le16 ba_param_set,
 			 __le16 ba_timeout, __le16 ba_seq_ctrl);
-void wil_back_rx_worker(struct work_struct *work);
-void wil_back_rx_flush(struct wil6210_priv *wil);
 int wil_addba_tx_request(struct wil6210_priv *wil, u8 ringid, u16 wsize);
-void wil_back_tx_worker(struct work_struct *work);
-void wil_back_tx_flush(struct wil6210_priv *wil);
 
 void wil6210_clear_irq(struct wil6210_priv *wil);
 int wil6210_init_irq(struct wil6210_priv *wil, int irq, bool use_msi);

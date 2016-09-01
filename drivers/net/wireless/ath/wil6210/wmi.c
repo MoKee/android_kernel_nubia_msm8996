@@ -487,6 +487,14 @@ static void wmi_evt_connect(struct wil6210_priv *wil, int id, void *d, int len)
 			return;
 		}
 		del_timer_sync(&wil->connect_timer);
+	} else if ((wdev->iftype == NL80211_IFTYPE_AP) ||
+		   (wdev->iftype == NL80211_IFTYPE_P2P_GO)) {
+		if (wil->sta[evt->cid].status != wil_sta_unused) {
+			wil_err(wil, "%s: AP: Invalid status %d for CID %d\n",
+				__func__, wil->sta[evt->cid].status, evt->cid);
+			mutex_unlock(&wil->mutex);
+			return;
+		}
 	}
 
 	/* FIXME FW can transmit only ucast frames to peer */
@@ -839,6 +847,7 @@ void wmi_recv_cmd(struct wil6210_priv *wil)
 			struct wil6210_mbox_hdr_wmi *wmi = &evt->event.wmi;
 			u16 id = le16_to_cpu(wmi->id);
 			u32 tstamp = le32_to_cpu(wmi->timestamp);
+			spin_lock_irqsave(&wil->wmi_ev_lock, flags);
 			if (wil->reply_id && wil->reply_id == id) {
 				if (wil->reply_buf) {
 					memcpy(wil->reply_buf, wmi,
@@ -846,6 +855,7 @@ void wmi_recv_cmd(struct wil6210_priv *wil)
 					immed_reply = true;
 				}
 			}
+			spin_unlock_irqrestore(&wil->wmi_ev_lock, flags);
 
 			wil_dbg_wmi(wil, "WMI event 0x%04x MID %d @%d msec\n",
 				    id, wmi->mid, tstamp);
@@ -889,13 +899,16 @@ int wmi_call(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len,
 
 	mutex_lock(&wil->wmi_mutex);
 
+	spin_lock(&wil->wmi_ev_lock);
+	wil->reply_id = reply_id;
+	wil->reply_buf = reply;
+	wil->reply_size = reply_size;
+	spin_unlock(&wil->wmi_ev_lock);
+
 	rc = __wmi_send(wil, cmdid, buf, len);
 	if (rc)
 		goto out;
 
-	wil->reply_id = reply_id;
-	wil->reply_buf = reply;
-	wil->reply_size = reply_size;
 	remain = wait_for_completion_timeout(&wil->wmi_call,
 					     msecs_to_jiffies(to_msec));
 	if (0 == remain) {
@@ -908,10 +921,14 @@ int wmi_call(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len,
 			    cmdid, reply_id,
 			    to_msec - jiffies_to_msecs(remain));
 	}
+
+out:
+	spin_lock(&wil->wmi_ev_lock);
 	wil->reply_id = 0;
 	wil->reply_buf = NULL;
 	wil->reply_size = 0;
- out:
+	spin_unlock(&wil->wmi_ev_lock);
+
 	mutex_unlock(&wil->wmi_mutex);
 
 	return rc;

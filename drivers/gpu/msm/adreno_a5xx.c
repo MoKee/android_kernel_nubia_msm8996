@@ -293,8 +293,19 @@ static int a5xx_preemption_pre_ibsubmit(
 	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
 	unsigned int preempt_style = 0;
 
-	if (context)
-		preempt_style = ADRENO_PREEMPT_STYLE(context->flags);
+	if (context) {
+		/*
+		 * Preemption from secure to unsecure needs Zap shader to be
+		 * run to clear all secure content. CP does not know during
+		 * preemption if it is switching between secure and unsecure
+		 * contexts so restrict Secure contexts to be preempted at
+		 * ringbuffer level.
+		 */
+		if (context->flags & KGSL_CONTEXT_SECURE)
+			preempt_style = KGSL_CONTEXT_PREEMPT_STYLE_RINGBUFFER;
+		else
+			preempt_style = ADRENO_PREEMPT_STYLE(context->flags);
+	}
 
 	/*
 	 * CP_PREEMPT_ENABLE_GLOBAL(global preemption) can only be set by KMD
@@ -877,7 +888,7 @@ static const struct kgsl_hwcg_reg a50x_hwcg_regs[] = {
 	{A5XX_RBBM_CLOCK_CNTL2_RB0, 0x00222222},
 	{A5XX_RBBM_CLOCK_CNTL_CCU0, 0x00022220},
 	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00555555},
+	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
 	{A5XX_RBBM_CLOCK_HYST_RAC, 0x07444044},
 	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_0, 0x00000002},
@@ -934,7 +945,7 @@ static const struct kgsl_hwcg_reg a510_hwcg_regs[] = {
 	{A5XX_RBBM_CLOCK_CNTL_CCU0, 0x00022220},
 	{A5XX_RBBM_CLOCK_CNTL_CCU1, 0x00022220},
 	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00555555},
+	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU1, 0x04040404},
 	{A5XX_RBBM_CLOCK_HYST_RAC, 0x07444044},
@@ -1025,7 +1036,7 @@ static const struct kgsl_hwcg_reg a530_hwcg_regs[] = {
 	{A5XX_RBBM_CLOCK_CNTL_CCU2, 0x00022220},
 	{A5XX_RBBM_CLOCK_CNTL_CCU3, 0x00022220},
 	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00555555},
+	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU1, 0x04040404},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU2, 0x04040404},
@@ -1121,7 +1132,7 @@ static const struct kgsl_hwcg_reg a540_hwcg_regs[] = {
 	{A5XX_RBBM_CLOCK_CNTL_CCU2, 0x00022220},
 	{A5XX_RBBM_CLOCK_CNTL_CCU3, 0x00022220},
 	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00555555},
+	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU1, 0x04040404},
 	{A5XX_RBBM_CLOCK_HYST_RB_CCU2, 0x04040404},
