@@ -760,7 +760,7 @@
 			synaptics,reset-active-ms = <20>;
 			synaptics,reset-delay-ms = <20>;
 			synaptics,lcd-reset-gpio = <&tlmm 8 0x0>;
-			synaptics,cap-button-codes = <172 139 158>;
+			synaptics,cap-button-codes = <172 158 183>; /* KEY_HOMEPAGE KEY_BACK KEY_F13 */
 			pinctrl-names = "synaptics_pin_active", "synaptics_pin_suspend";
 			pinctrl-0 = <&synaptics_int_active &synaptics_reset_active>;
 			pinctrl-1 = <&synaptics_int_suspend &synaptics_reset_suspend>;
