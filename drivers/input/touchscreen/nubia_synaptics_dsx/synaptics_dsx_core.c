@@ -175,6 +175,7 @@ static ssize_t synaptics_rmi4_f01_buildid_show(struct device *dev,
 
 static ssize_t synaptics_rmi4_f01_flashprog_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
+#endif
 
 static ssize_t synaptics_rmi4_0dbutton_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
@@ -182,6 +183,7 @@ static ssize_t synaptics_rmi4_0dbutton_show(struct device *dev,
 static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
+#ifdef NUBIA_SYNAPTICS_CTS_CRASH
 static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 #endif
@@ -659,9 +661,11 @@ static struct device_attribute attrs[] = {
 	__ATTR(flashprog, S_IRUGO,
 			synaptics_rmi4_f01_flashprog_show,
 			synaptics_rmi4_store_error),
+#endif
 	__ATTR(0dbutton, (S_IRUGO | S_IWUSR),
 			synaptics_rmi4_0dbutton_show,
 			synaptics_rmi4_0dbutton_store),
+#ifdef NUBIA_SYNAPTICS_CTS_CRASH
 	__ATTR(suspend, S_IWUSR,
 			synaptics_rmi4_show_error,
 			synaptics_rmi4_suspend_store),
@@ -761,11 +765,16 @@ static ssize_t synaptics_rmi4_f01_flashprog_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n",
 			device_status.flash_prog);
 }
+#endif
 
 static ssize_t synaptics_rmi4_0dbutton_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
+#ifdef NUBIA_TP_I2C_ROOT_NODE
+	struct synaptics_rmi4_data *rmi4_data = nubia_i2c_node;
+#else
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+#endif
 
 	return snprintf(buf, PAGE_SIZE, "%u\n",
 			rmi4_data->button_0d_enabled);
@@ -779,7 +788,11 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 	unsigned char ii;
 	unsigned char intr_enable;
 	struct synaptics_rmi4_fn *fhandler;
+#ifdef NUBIA_TP_I2C_ROOT_NODE
+	struct synaptics_rmi4_data *rmi4_data = nubia_i2c_node;
+#else
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+#endif
 	struct synaptics_rmi4_device_info *rmi;
 
 	rmi = &(rmi4_data->rmi4_mod_info);
@@ -825,6 +838,7 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 	return count;
 }
 
+#ifdef NUBIA_SYNAPTICS_CTS_CRASH
 static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
