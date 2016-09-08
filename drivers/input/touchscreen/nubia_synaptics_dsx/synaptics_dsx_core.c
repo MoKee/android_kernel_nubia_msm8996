@@ -1071,6 +1071,37 @@ static int report_palm_event(struct synaptics_rmi4_data *rmi4_data)
 }
 #endif
 
+#define NUBIA_SCREEN_WIDTH 1080
+#define NUBIA_SCREEN_SLOP 96 // 32dp
+#define NUBIA_SCREEN_LEFT_EDGE (NUBIA_SCREEN_SLOP)
+#define NUBIA_SCREEN_RIGHT_EDGE (NUBIA_SCREEN_WIDTH - NUBIA_SCREEN_SLOP)
+
+static int synaptics_rmi4_remap_check(int x)
+{
+	if (x < NUBIA_SCREEN_SLOP / 2) {
+		return 1;
+	}
+
+	if (x > NUBIA_SCREEN_WIDTH - NUBIA_SCREEN_SLOP / 2) {
+		return 1;
+	}
+
+	return 0;
+}
+
+static int synaptics_rmi4_remap_position_x(int x)
+{
+	if (x < NUBIA_SCREEN_LEFT_EDGE) {
+		return x * 2 - NUBIA_SCREEN_LEFT_EDGE;
+	}
+
+	if (x > NUBIA_SCREEN_RIGHT_EDGE) {
+		return NUBIA_SCREEN_RIGHT_EDGE + (x - NUBIA_SCREEN_RIGHT_EDGE) * 2;
+	}
+
+	return x;
+}
+
 static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 		struct synaptics_rmi4_fn *fhandler)
 {
@@ -1216,12 +1247,21 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			if (rmi4_data->hw_if->board_data->y_flip)
 				y = rmi4_data->sensor_max_y - y;
 
+			if (synaptics_rmi4_remap_check(x)) {
+#ifdef TYPE_B_PROTOCOL
+				input_mt_slot(rmi4_data->input_dev, finger);
+				input_mt_report_slot_state(rmi4_data->input_dev,
+						MT_TOOL_FINGER, 0);
+#endif
+				continue;
+			}
+
 			input_report_key(rmi4_data->input_dev,
 					BTN_TOUCH, 1);
 			input_report_key(rmi4_data->input_dev,
 					BTN_TOOL_FINGER, 1);
 			input_report_abs(rmi4_data->input_dev,
-					ABS_MT_POSITION_X, x);
+					ABS_MT_POSITION_X, synaptics_rmi4_remap_position_x(x));
 			input_report_abs(rmi4_data->input_dev,
 					ABS_MT_POSITION_Y, y);
 
@@ -1444,6 +1484,15 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 		if (rmi4_data->hw_if->board_data->y_flip)
 			y = rmi4_data->sensor_max_y - y;
 
+		if (synaptics_rmi4_remap_check(x)) {
+#ifdef TYPE_B_PROTOCOL
+			input_mt_slot(rmi4_data->input_dev, finger);
+			input_mt_report_slot_state(rmi4_data->input_dev,
+					MT_TOOL_FINGER, 0);
+#endif
+			continue;
+		}
+
 		switch (finger_status) {
 		case F12_FINGER_STATUS:
 		case F12_GLOVED_FINGER_STATUS:
@@ -1460,7 +1509,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_report_key(rmi4_data->input_dev,
 					BTN_TOOL_FINGER, 1);
 			input_report_abs(rmi4_data->input_dev,
-					ABS_MT_POSITION_X, x);
+					ABS_MT_POSITION_X, synaptics_rmi4_remap_position_x(x));
 			input_report_abs(rmi4_data->input_dev,
 					ABS_MT_POSITION_Y, y);
 #ifdef REPORT_2D_W
