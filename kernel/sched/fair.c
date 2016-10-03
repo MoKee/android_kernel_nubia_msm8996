@@ -8867,6 +8867,7 @@ redo:
 
 more_balance:
 		raw_spin_lock_irqsave(&busiest->lock, flags);
+		update_rq_clock(busiest);
 
 		/*
 		 * cur_ld_moved - load moved in current iteration
@@ -9257,6 +9258,7 @@ static int active_load_balance_cpu_stop(void *data)
 	if (likely(sd)) {
 		env.sd = sd;
 		schedstat_inc(sd, alb_count);
+		update_rq_clock(busiest_rq);
 
 		p = detach_one_task(&env);
 		if (p)
