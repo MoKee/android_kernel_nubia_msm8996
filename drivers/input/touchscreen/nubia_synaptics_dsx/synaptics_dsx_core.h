@@ -327,6 +327,7 @@ struct synaptics_dsx_pinctrl {
  * @report_pressure: flag to indicate reporting of pressure data
  * @stylus_enable: flag to indicate reporting of stylus data
  * @eraser_enable: flag to indicate reporting of eraser data
+ * @swap_buttons: flag to indicate whether to swap left and right buttons
  * @reset_device: pointer to device reset function
  * @irq_enable: pointer to interrupt enable function
  * @sleep_enable: pointer to sleep enable function
@@ -400,6 +401,7 @@ struct synaptics_rmi4_data {
 	bool palm_suspend;
 	bool palm_sleep;
 #endif
+	bool swap_buttons;
 //nubia for pinctrl
 #ifdef NUBIA_SYNAPTICS_PINCTRL
 	struct synaptics_dsx_pinctrl pinctrl_info;
