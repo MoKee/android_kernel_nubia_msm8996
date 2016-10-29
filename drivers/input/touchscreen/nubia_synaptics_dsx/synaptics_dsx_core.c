@@ -1112,7 +1112,7 @@ static int report_palm_event(struct synaptics_rmi4_data *rmi4_data)
 #endif
 
 #define NUBIA_SCREEN_WIDTH 1080
-#define NUBIA_SCREEN_SLOP 96 // 32dp
+#define NUBIA_SCREEN_SLOP 28 * 3
 #define NUBIA_SCREEN_LEFT_EDGE (NUBIA_SCREEN_SLOP)
 #define NUBIA_SCREEN_RIGHT_EDGE (NUBIA_SCREEN_WIDTH - NUBIA_SCREEN_SLOP)
 
