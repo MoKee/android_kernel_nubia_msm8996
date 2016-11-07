@@ -387,8 +387,10 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 	if ((rcg->non_local_children && c->count) ||
 			rcg->non_local_control_timeout) {
 		/*
-		 * Force enable the RCG here since the clock could be disabled
-		 * between pre_reparent and set_rate.
+		 * Force enable the RCG before updating the RCG configuration
+		 * since the downstream clock/s can be disabled at around the
+		 * same time causing the feedback from the CBCR to turn off
+		 * the RCG.
 		 */
 		rcg_set_force_enable(rcg);
 		rcg->set_rate(rcg, nf);
