@@ -772,6 +772,65 @@ static ssize_t mdss_fb_get_dfps_mode(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_fb_change_persist_mode(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *pinfo = NULL;
+	struct mdss_panel_data *pdata;
+	int ret = 0;
+	u32 persist_mode;
+
+	pinfo = mfd->panel_info;
+
+	if (kstrtouint(buf, 0, &persist_mode)) {
+		pr_err("kstrtouint buf error!\n");
+		return len;
+	}
+
+	if (!mfd || !mfd->panel_info) {
+		pr_err("%s: Panel info is NULL!\n", __func__);
+		return len;
+	}
+
+	mutex_lock(&mfd->bl_lock);
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if ((pdata) && (pdata->apply_display_setting))
+		ret = pdata->apply_display_setting(pdata, persist_mode);
+
+	mutex_unlock(&mfd->bl_lock);
+
+	if(!ret) {
+		pr_debug("%s: Persist mode %d\n", __func__, persist_mode);
+		pinfo->persist_mode = persist_mode;
+	}
+
+	return len;
+}
+
+static ssize_t mdss_fb_get_persist_mode(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_data *pdata;
+	struct mdss_panel_info *pinfo;
+	int ret;
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("no panel connected!\n");
+		return -EINVAL;
+	}
+	pinfo = &pdata->panel_info;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", pinfo->persist_mode);
+
+	return ret;
+}
+
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
 					mdss_fb_store_split);
@@ -788,6 +847,8 @@ static DEVICE_ATTR(msm_fb_panel_status, S_IRUGO | S_IWUSR,
 	mdss_fb_get_panel_status, mdss_fb_force_panel_dead);
 static DEVICE_ATTR(msm_fb_dfps_mode, S_IRUGO | S_IWUSR,
 	mdss_fb_get_dfps_mode, mdss_fb_change_dfps_mode);
+static DEVICE_ATTR(msm_fb_persist_mode, S_IRUGO | S_IWUSR,
+	mdss_fb_get_persist_mode, mdss_fb_change_persist_mode);
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
@@ -799,6 +860,7 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_thermal_level.attr,
 	&dev_attr_msm_fb_panel_status.attr,
 	&dev_attr_msm_fb_dfps_mode.attr,
+	&dev_attr_msm_fb_persist_mode.attr,
 	NULL,
 };
 
@@ -1553,7 +1615,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	} else {
 		mfd->unset_bl_level = 0;
 	}
-	zte_camera_mfd = mfd; //ZTEMT: added by nubia camera for front camera flash 
+	zte_camera_mfd = mfd; //ZTEMT: added by nubia camera for front camera flash
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
@@ -1577,7 +1639,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 			if (mfd->bl_level != bkl_lvl)
 				bl_notify_needed = true;
 			pr_debug("backlight sent to panel :%d\n", temp);
-			if(!camera_lcd_bkl_handle() || (0 == temp)) //ZTEMT: added by nubia camera for front camera flash 
+			if(!camera_lcd_bkl_handle() || (0 == temp)) //ZTEMT: added by nubia camera for front camera flash
 			    pdata->set_backlight(pdata, temp);
 			mfd->bl_level = bkl_lvl;
 			mfd->bl_level_scaled = temp;

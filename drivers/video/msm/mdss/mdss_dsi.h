@@ -386,6 +386,8 @@ struct dsi_err_container {
 #define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL	0x02a8
 #define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL2	0x02ac
 #define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL3	0x02b0
+
+#define DISPLAY_LOW_PERSISTENCE_MASK    1
 //add by nubia cai colortmp
 struct nubia_mdp_colortmp{
 	int defult;
@@ -470,6 +472,8 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds post_dms_on_cmds;
 	struct dsi_panel_cmds post_panel_on_cmds;
 	struct dsi_panel_cmds off_cmds;
+	struct dsi_panel_cmds lp_on_cmds;
+	struct dsi_panel_cmds lp_off_cmds;
 	struct dsi_panel_cmds status_cmds;
 #ifdef CONFIG_NUBIA_LCD_DISP_PREFERENCE
 	struct dsi_panel_cmds ce_cmds_off;
