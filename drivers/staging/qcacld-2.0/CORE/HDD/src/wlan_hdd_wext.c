@@ -2755,6 +2755,13 @@ static int __iw_set_genie(struct net_device *dev, struct iw_request_info *info,
         hddLog(VOS_TRACE_LEVEL_INFO, "%s: IE[0x%X], LEN[%d]",
             __func__, elementId, eLen);
 
+        if (remLen < eLen) {
+            hddLog(LOGE, "Remaining len: %u less than ie len: %u",
+                   remLen, eLen);
+            ret = -EINVAL;
+            goto exit;
+        }
+
         switch ( elementId )
          {
             case IE_EID_VENDOR:
@@ -2837,8 +2844,11 @@ static int __iw_set_genie(struct net_device *dev, struct iw_request_info *info,
                 hddLog (LOGE, "%s Set UNKNOWN IE %X",__func__, elementId);
                 goto exit;
     }
-        genie += eLen;
         remLen -= eLen;
+
+        /* Move genie only if next element is present */
+        if (remLen >= 2)
+            genie += eLen;
     }
 exit:
     EXIT();
@@ -8653,8 +8663,8 @@ static int __iw_set_var_ints_getnone(struct net_device *dev,
                         __func__, apps_args[0], apps_args[1], apps_args[2],
                         apps_args[3], apps_args[4]);
                 if (hHal)
-                    logPrintf(hHal, apps_args[0], apps_args[1], apps_args[2],
-                            apps_args[3], apps_args[4]);
+                    return logPrintf(hHal, apps_args[0], apps_args[1],
+                                     apps_args[2], apps_args[3], apps_args[4]);
 
             }
             break;
@@ -11048,7 +11058,7 @@ static int __iw_set_two_ints_getnone(struct net_device *dev,
             tCsrRoamProfile roam_profile;
 
             hddLog(LOG1, "Set monitor mode Channel %d", value[1]);
-            hdd_select_cbmode(pAdapter, value[1], &vht_channel_width);
+            hdd_select_mon_cbmode(pAdapter, value[1], &vht_channel_width);
             roam_profile.ChannelInfo.ChannelList = &ch_info->channel;
             roam_profile.ChannelInfo.numOfChannels = 1;
             roam_profile.vht_channel_width = ch_info->channel_width;
