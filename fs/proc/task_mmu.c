@@ -551,7 +551,7 @@ static void smaps_pte_entry(pte_t *pte, unsigned long addr,
 		swp_entry_t swpent = pte_to_swp_entry(*pte);
 
 		if (!non_swap_entry(swpent))
-			mss->swap += ptent_size;
+			mss->swap += PAGE_SIZE;
 		else if (is_migration_entry(swpent))
 			page = migration_entry_to_page(swpent);
 	} else if (pte_file(*pte)) {
