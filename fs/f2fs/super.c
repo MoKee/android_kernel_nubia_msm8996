@@ -1353,12 +1353,22 @@ static inline bool sanity_check_area_boundary(struct f2fs_sb_info *sbi,
 			segment_count_main << log_blocks_per_seg);
 		if (err)
 			return true;
+
+	if (main_blkaddr + (segment_count_main << log_blocks_per_seg) !=
+		segment0_blkaddr + (segment_count << log_blocks_per_seg)) {
+		f2fs_msg(sb, KERN_INFO,
+			"Wrong MAIN_AREA boundary, start(%u) end(%u) blocks(%u)",
+			main_blkaddr,
+			segment0_blkaddr + (segment_count << log_blocks_per_seg),
+			segment_count_main << log_blocks_per_seg);
+		return true;
 	}
+
 	return false;
 }
 
-static int sanity_check_raw_super(struct f2fs_sb_info *sbi,
-				struct buffer_head *bh)
+static int sanity_check_raw_super(struct super_block *sb,
+			struct f2fs_super_block *raw_super)
 {
 	struct f2fs_super_block *raw_super = (struct f2fs_super_block *)
 					(bh->b_data + F2FS_SUPER_OFFSET);
@@ -1429,7 +1439,7 @@ static int sanity_check_raw_super(struct f2fs_sb_info *sbi,
 	}
 
 	/* check CP/SIT/NAT/SSA/MAIN_AREA area boundary */
-	if (sanity_check_area_boundary(sbi, bh))
+	if (sanity_check_area_boundary(sb, raw_super))
 		return 1;
 
 	return 0;

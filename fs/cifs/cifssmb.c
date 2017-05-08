@@ -1396,12 +1396,13 @@ openRetry:
 static int
 cifs_readv_discard(struct TCP_Server_Info *server, struct mid_q_entry *mid)
 {
+	int length;
 	unsigned int rfclen = get_rfc1002_length(server->smallbuf);
 	int remaining = rfclen + 4 - server->total_read;
 	struct cifs_readdata *rdata = mid->callback_data;
 
 	while (remaining > 0) {
-		int length;
+
 
 		length = cifs_read_from_socket(server, server->bigbuf,
 				min_t(unsigned int, remaining,
@@ -1413,7 +1414,9 @@ cifs_readv_discard(struct TCP_Server_Info *server, struct mid_q_entry *mid)
 	}
 
 	dequeue_mid(mid, rdata->result);
-	return 0;
+	mid->resp_buf = server->smallbuf;
+	server->smallbuf = NULL;
+	return length;
 }
 
 int
@@ -1521,6 +1524,8 @@ cifs_readv_receive(struct TCP_Server_Info *server, struct mid_q_entry *mid)
 		return cifs_readv_discard(server, mid);
 
 	dequeue_mid(mid, false);
+	mid->resp_buf = server->smallbuf;
+	server->smallbuf = NULL;
 	return length;
 }
 
