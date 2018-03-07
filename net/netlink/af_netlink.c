@@ -216,11 +216,6 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
 
 	dev_hold(dev);
 	nskb = skb_clone(skb, GFP_ATOMIC);
-
-	if (is_vmalloc_addr(skb->head))
-		nskb = netlink_to_full_skb(skb, GFP_ATOMIC);
-	else
-		nskb = skb_clone(skb, GFP_ATOMIC);
 	if (nskb) {
 		nskb->dev = dev;
 		nskb->protocol = htons((u16) sk->sk_protocol);
