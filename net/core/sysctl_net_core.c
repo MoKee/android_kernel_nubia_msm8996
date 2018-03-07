@@ -369,7 +369,6 @@ static struct ctl_table net_core_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= &one,
 		.extra2		= &max_skb_frags,
 	},
 	{ }
