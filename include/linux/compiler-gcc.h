@@ -238,7 +238,6 @@
 #define KASAN_ABI_VERSION 3
 #endif
 
-<<<<<<< HEAD
 #if GCC_VERSION >= 40902
 /*
  * Tell the compiler that address safety instrumentation (KASAN)
@@ -248,8 +247,6 @@
 #define __no_sanitize_address __attribute__((no_sanitize_address))
 #endif
 
-=======
->>>>>>> 4acf31a215e... Merge 3.18.32 into android-3.18
 #endif	/* gcc version >= 40000 specific checks */
 
 #if !defined(__noclone)
