@@ -3820,14 +3820,8 @@ static int xhci_setup_device(struct usb_hcd *hcd, struct usb_device *udev,
 
 	mutex_lock(&xhci->mutex);
 
-<<<<<<< HEAD
-	if (xhci->xhc_state)	/* dying or halted */
-		goto out;
-=======
 	if (xhci->xhc_state)	/* dying, removing or halted */
 		return -EINVAL;
->>>>>>> 4acf31a215e... Merge 3.18.32 into android-3.18
-
 	if (!udev->slot_id) {
 		xhci_dbg_trace(xhci, trace_xhci_dbg_address,
 				"Bad Slot ID %d", udev->slot_id);
