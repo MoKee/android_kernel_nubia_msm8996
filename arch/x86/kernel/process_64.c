@@ -49,6 +49,7 @@
 #include <asm/syscalls.h>
 #include <asm/debugreg.h>
 #include <asm/switch_to.h>
+#include <asm/xen/hypervisor.h>
 
 asmlinkage extern void ret_from_fork(void);
 
@@ -122,11 +123,11 @@ void __show_regs(struct pt_regs *regs, int all)
 void release_thread(struct task_struct *dead_task)
 {
 	if (dead_task->mm) {
-		if (dead_task->mm->context.size) {
+		if (dead_task->mm->context.ldt) {
 			pr_warn("WARNING: dead process %s still has LDT? <%p/%d>\n",
 				dead_task->comm,
 				dead_task->mm->context.ldt,
-				dead_task->mm->context.size);
+				dead_task->mm->context.ldt->size);
 			BUG();
 		}
 	}
@@ -423,6 +424,17 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	if (unlikely(task_thread_info(next_p)->flags & _TIF_WORK_CTXSW_NEXT ||
 		     task_thread_info(prev_p)->flags & _TIF_WORK_CTXSW_PREV))
 		__switch_to_xtra(prev_p, next_p, tss);
+
+#ifdef CONFIG_XEN
+	/*
+	 * On Xen PV, IOPL bits in pt_regs->flags have no effect, and
+	 * current_pt_regs()->flags may not match the current task's
+	 * intended IOPL.  We need to switch it manually.
+	 */
+	if (unlikely(xen_pv_domain() &&
+		     prev->iopl != next->iopl))
+		xen_set_iopl_mask(next->iopl);
+#endif
 
 	return prev_p;
 }

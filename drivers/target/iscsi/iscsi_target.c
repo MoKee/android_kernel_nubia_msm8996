@@ -707,7 +707,7 @@ static int iscsit_add_reject_from_cmd(
 	 */
 	if (cmd->se_cmd.se_tfo != NULL) {
 		pr_debug("iscsi reject: calling target_put_sess_cmd >>>>>>\n");
-		target_put_sess_cmd(conn->sess->se_sess, &cmd->se_cmd);
+		target_put_sess_cmd(&cmd->se_cmd);
 	}
 	return -1;
 }
@@ -997,7 +997,7 @@ int iscsit_setup_scsi_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 		hdr->cmdsn, be32_to_cpu(hdr->data_length), payload_length,
 		conn->cid);
 
-	target_get_sess_cmd(conn->sess->se_sess, &cmd->se_cmd, true);
+	target_get_sess_cmd(&cmd->se_cmd, true);
 
 	cmd->sense_reason = transport_lookup_cmd_lun(&cmd->se_cmd,
 						     scsilun_to_int(&hdr->lun));
@@ -1063,7 +1063,7 @@ int iscsit_process_scsi_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 		if (cmdsn_ret == CMDSN_ERROR_CANNOT_RECOVER)
 			return -1;
 		else if (cmdsn_ret == CMDSN_LOWER_THAN_EXP) {
-			target_put_sess_cmd(conn->sess->se_sess, &cmd->se_cmd);
+			target_put_sess_cmd(&cmd->se_cmd);
 			return 0;
 		}
 	}
@@ -1079,7 +1079,7 @@ int iscsit_process_scsi_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 		if (!cmd->sense_reason)
 			return 0;
 
-		target_put_sess_cmd(conn->sess->se_sess, &cmd->se_cmd);
+		target_put_sess_cmd(&cmd->se_cmd);
 		return 0;
 	}
 
@@ -1110,7 +1110,6 @@ static int
 iscsit_get_immediate_data(struct iscsi_cmd *cmd, struct iscsi_scsi_req *hdr,
 			  bool dump_payload)
 {
-	struct iscsi_conn *conn = cmd->conn;
 	int cmdsn_ret = 0, immed_ret = IMMEDIATE_DATA_NORMAL_OPERATION;
 	/*
 	 * Special case for Unsupported SAM WRITE Opcodes and ImmediateData=Yes.
@@ -1137,7 +1136,7 @@ after_immediate_data:
 
 			rc = iscsit_dump_data_payload(cmd->conn,
 						      cmd->first_burst_len, 1);
-			target_put_sess_cmd(conn->sess->se_sess, &cmd->se_cmd);
+			target_put_sess_cmd(&cmd->se_cmd);
 			return rc;
 		} else if (cmd->unsolicited_data)
 			iscsit_set_unsoliticed_dataout(cmd);
@@ -1807,7 +1806,7 @@ iscsit_handle_task_mgt_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 				      conn->sess->se_sess, 0, DMA_NONE,
 				      MSG_SIMPLE_TAG, cmd->sense_buffer + 2);
 
-		target_get_sess_cmd(conn->sess->se_sess, &cmd->se_cmd, true);
+		target_get_sess_cmd(&cmd->se_cmd, true);
 		sess_ref = true;
 
 		switch (function) {
@@ -1949,7 +1948,7 @@ attach:
 	 */
 	if (sess_ref) {
 		pr_debug("Handle TMR, using sess_ref=true check\n");
-		target_put_sess_cmd(conn->sess->se_sess, &cmd->se_cmd);
+		target_put_sess_cmd(&cmd->se_cmd);
 	}
 
 	iscsit_add_cmd_to_response_queue(cmd, conn, cmd->i_state);
@@ -3961,7 +3960,13 @@ get_immediate:
 	}
 
 transport_err:
-	iscsit_take_action_for_connection_exit(conn);
+	/*
+	 * Avoid the normal connection failure code-path if this connection
+	 * is still within LOGIN mode, and iscsi_np process context is
+	 * responsible for cleaning up the early connection failure.
+	 */
+	if (conn->conn_state != TARG_CONN_STATE_IN_LOGIN)
+		iscsit_take_action_for_connection_exit(conn);
 out:
 	return 0;
 }
@@ -4047,7 +4052,7 @@ reject:
 
 int iscsi_target_rx_thread(void *arg)
 {
-	int ret;
+	int ret, rc;
 	u8 buffer[ISCSI_HDR_LEN], opcode;
 	u32 checksum = 0, digest = 0;
 	struct iscsi_conn *conn = arg;
@@ -4057,10 +4062,16 @@ int iscsi_target_rx_thread(void *arg)
 	 * connection recovery / failure event can be triggered externally.
 	 */
 	allow_signal(SIGINT);
+	/*
+	 * Wait for iscsi_post_login_handler() to complete before allowing
+	 * incoming iscsi/tcp socket I/O, and/or failing the connection.
+	 */
+	rc = wait_for_completion_interruptible(&conn->rx_login_comp);
+	if (rc < 0)
+		return 0;
 
 	if (conn->conn_transport->transport_type == ISCSI_INFINIBAND) {
 		struct completion comp;
-		int rc;
 
 		init_completion(&comp);
 		rc = wait_for_completion_interruptible(&comp);
@@ -4499,7 +4510,18 @@ static void iscsit_logout_post_handler_closesession(
 	struct iscsi_conn *conn)
 {
 	struct iscsi_session *sess = conn->sess;
-	int sleep = cmpxchg(&conn->tx_thread_active, true, false);
+	int sleep = 1;
+	/*
+	 * Traditional iscsi/tcp will invoke this logic from TX thread
+	 * context during session logout, so clear tx_thread_active and
+	 * sleep if iscsit_close_connection() has not already occured.
+	 *
+	 * Since iser-target invokes this logic from it's own workqueue,
+	 * always sleep waiting for RX/TX thread shutdown to complete
+	 * within iscsit_close_connection().
+	 */
+	if (conn->conn_transport->transport_type == ISCSI_TCP)
+		sleep = cmpxchg(&conn->tx_thread_active, true, false);
 
 	atomic_set(&conn->conn_logout_remove, 0);
 	complete(&conn->conn_logout_comp);
@@ -4513,7 +4535,10 @@ static void iscsit_logout_post_handler_closesession(
 static void iscsit_logout_post_handler_samecid(
 	struct iscsi_conn *conn)
 {
-	int sleep = cmpxchg(&conn->tx_thread_active, true, false);
+	int sleep = 1;
+
+	if (conn->conn_transport->transport_type == ISCSI_TCP)
+		sleep = cmpxchg(&conn->tx_thread_active, true, false);
 
 	atomic_set(&conn->conn_logout_remove, 0);
 	complete(&conn->conn_logout_comp);
@@ -4732,6 +4757,7 @@ int iscsit_release_sessions_for_tpg(struct iscsi_portal_group *tpg, int force)
 	struct iscsi_session *sess;
 	struct se_portal_group *se_tpg = &tpg->tpg_se_tpg;
 	struct se_session *se_sess, *se_sess_tmp;
+	LIST_HEAD(free_list);
 	int session_count = 0;
 
 	spin_lock_bh(&se_tpg->session_lock);
@@ -4753,14 +4779,17 @@ int iscsit_release_sessions_for_tpg(struct iscsi_portal_group *tpg, int force)
 		}
 		atomic_set(&sess->session_reinstatement, 1);
 		spin_unlock(&sess->conn_lock);
-		spin_unlock_bh(&se_tpg->session_lock);
 
-		iscsit_free_session(sess);
-		spin_lock_bh(&se_tpg->session_lock);
-
-		session_count++;
+		list_move_tail(&se_sess->sess_list, &free_list);
 	}
 	spin_unlock_bh(&se_tpg->session_lock);
+
+	list_for_each_entry_safe(se_sess, se_sess_tmp, &free_list, sess_list) {
+		sess = (struct iscsi_session *)se_sess->fabric_sess_ptr;
+
+		iscsit_free_session(sess);
+		session_count++;
+	}
 
 	pr_debug("Released %d iSCSI Session(s) from Target Portal"
 			" Group: %hu\n", session_count, tpg->tpgt);
