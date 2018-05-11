@@ -163,4 +163,4 @@ obj-$(CONFIG_NUBIA_SENSORS)			+= nubia_sensors/
 obj-$(CONFIG_PMBUS)		+= pmbus/
 
 ccflags-$(CONFIG_HWMON_DEBUG_CHIP) := -DDEBUG
-
+CFLAGS_qpnp-adc-voltage.o := $(call cc-disable-warning, enum-conversion)
