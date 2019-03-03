@@ -410,3 +410,6 @@ endif   # if NET
 # Used by archs to tell that they support BPF_JIT
 config HAVE_BPF_JIT
 	bool
+
+#nubia add for Lte+wifi
+source "net/multichannel/Kconfig"
