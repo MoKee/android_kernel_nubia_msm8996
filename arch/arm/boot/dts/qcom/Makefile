@@ -340,6 +340,13 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009-ext-codec-dragon.dtb \
 	apq8009-dragon.dtb
 
+ifeq ($(CONFIG_MACH_NUBIA_NX531J),y)
+dtb-y := msm8996-v3-pmi8996-mtp-NX531J.dtb \
+	msm8996-v3.0-pmi8996-mtp-NX531J.dtb \
+	msm8996pro-pmi8996-mtp-NX531J.dtb \
+	msm8996pro-v1.1-pmi8996-mtp-NX531J.dtb
+endif
+
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
 subdir-y        := $(dts-dirs)

@@ -25,11 +25,15 @@
 #include "dsi-panel-hx8379a-truly-fwvga-video.dtsi"
 #include "dsi-panel-r69007-dualdsi-wqxga-cmd.dtsi"
 #include "dsi-adv7533-1024-600p.dtsi"
+#include "nubia_panel/zte-dsi-panel-sharp-r63417-1080p-5p5-cmd.dtsi"
+#include "nubia_panel/zte-dsi-panel-sharp-r63417-1080p-5p5-video.dtsi"
 #include "dsi-adv7533-720p.dtsi"
 #include "dsi-adv7533-1080p.dtsi"
 #include "dsi-panel-nt35950-dsc-4k-cmd.dtsi"
 #include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
+#include "nubia_panel/nubia-dsi-panel-jdi-r63452-1080p-5p5-cmd.dtsi"
+#include "nubia_panel/nubia-dsi-panel-jdi-r63452-1080p-5p5-video.dtsi"
 #include "dsi-panel-sharp-dsc-4k-video.dtsi"
 #include "dsi-panel-toshiba-720p-video.dtsi"
 #include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
@@ -145,6 +149,35 @@
 	};
 };
 
+&dsi_sp_1080p_5p5_video {
+        qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
+                        23 20 06 09 05 03 04 a0
+                        23 20 06 09 05 03 04 a0
+                        23 20 06 09 05 03 04 a0
+                        23 2e 06 08 05 03 04 a0];
+};
+&dsi_sp_1080p_5p5 {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
+			23 20 06 09 05 03 04 a0
+			23 20 06 09 05 03 04 a0
+			23 20 06 09 05 03 04 a0
+			23 2e 06 08 05 03 04 a0];
+};
+&jdi_dsi_sp_1080p_5p5_video {
+        qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
+                        23 20 06 09 05 03 04 a0
+                        23 20 06 09 05 03 04 a0
+                        23 20 06 09 05 03 04 a0
+                        23 2e 06 08 05 03 04 a0];
+};
+
+&jdi_dsi_sp_1080p_5p5 {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1f 07 09 05 03 04 a0
+		23 1f 07 09 05 03 04 a0
+		23 1f 07 09 05 03 04 a0
+		23 1f 07 09 05 03 04 a0
+		23 19 08 08 05 03 04 a0];
+};
 &dsi_nt35950_4k_dsc_cmd {
 	qcom,mdss-dsi-panel-timings-phy-v2 = [21 1e 06 08 04 03 04 a0
 		21 1e 06 08 04 03 04 a0

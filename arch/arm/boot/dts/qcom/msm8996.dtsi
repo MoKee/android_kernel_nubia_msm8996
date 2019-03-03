@@ -13,6 +13,11 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8996.h>
 
+//nubia add start
+//thr marco for enlarge memory for TA
+//#define NUBIA_ENLARGE_TA_MEMORY
+//nubia add end
+
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996";
 	compatible = "qcom,msm8996";
@@ -44,6 +49,10 @@
 		mhi_rmnet1 = &mhi_rmnet_1;
 		mhi_uci0 = &mhi_uci_0;
 		mhi0 = &mhi_0;
+		// nubia add start
+		// add spi4 (num from 0-5)
+		spi4 = &spi_4;
+		// nubia add end
 	};
 
 	psci {
@@ -180,16 +189,27 @@
 		#size-cells = <2>;
 		ranges;
 
+		//nubia add start
+		//enlarge memory for TA
+		#ifdef NUBIA_ENLARGE_TA_MEMORY
+		removed_regions: removed_regions@B0000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0xB0000000 0 0x3200000>;
+		};
+		#else
 		removed_regions: removed_regions@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x85800000 0 0x3000000>;
 		};
+		#endif
+		//nubia add end
 
 		peripheral_mem: peripheral_region@8ea00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8ea00000 0 0x2d00000>;
+			reg = <0 0x8ea00000 0 0x2b00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -200,6 +220,17 @@
 			size = <0 0x400000>;
 		};
 
+		//nubia add start
+		//enlarge memory for TA
+		#ifdef NUBIA_ENLARGE_TA_MEMORY
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x3200000>;
+		};
+		#else
 		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
@@ -207,6 +238,8 @@
 			alignment = <0 0x400000>;
 			size = <0 0x1400000>;
 		};
+		#endif
+		//nubia add end
 
 		secure_display_memory: secure_region {
 			compatible = "shared-dma-pool";
@@ -236,6 +269,14 @@
 			reg = <0 0xb1c00000 0 0x23ff000>;
 			label = "cont_splash_mem_hdmi";
 		};
+
+		pstore_reserve_mem: pstore_reserve_mem_region@9ff00000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x9ff00000 0x0 0x00100000>;
+			label = "pstore_reserve_mem";
+                };	
 	};
 };
 
@@ -344,6 +385,15 @@
 		clock-names = "core_clk", "iface_clk";
 	};
 
+	uartblsp2dm2: serial@075b1000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x75b1000 0x1000>;
+		interrupts = <0 115 0>;
+		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_blsp2_uart3_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+	};
 	i2c_12: i2c@75ba000 {
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
@@ -1823,8 +1873,8 @@
 		reg = <0x9830000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 28 0>, <0 29 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,bark-time = <20000>;
+		qcom,pet-time = <15000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 	};
@@ -2140,9 +2190,9 @@
 		qcom,tune2-efuse-num-bits = <4>;
 		qcom,enable-dpdm-pulsing;
 		qcom,qusb-phy-init-seq = <0xF8 0x80
-					0xB3 0x84
-					0x83 0x88
-					0xC0 0x8C
+					0x03 0x84
+					0x93 0x88
+					0xCF 0x8C
 					0x30 0x08
 					0x79 0x0C
 					0x21 0x10
@@ -2312,7 +2362,7 @@
 		vdd-wlan-io-supply = <&pm8994_s4>;
 		vdd-wlan-xtal-supply = <&pm8994_l30>;
 		vdd-wlan-core-supply = <&pm8994_s3>;
-		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
+		//wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
 		qcom,wlan-en-vreg-support;
 		qcom,enable-bootstrap-gpio;
 		qcom,notify-modem-status;
@@ -2482,6 +2532,37 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
 	};
+	// nubia add start
+	// add spi4 (num from 0-5)
+	spi_4: spi@7579000 { /* BLSP1 QUP5 (spi num from 0-6) (QUP num from 1-6) */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x07579000 0x600>,
+		      <0x07544000 0x2b000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 99 0>, <0 238 0>;
+		spi-max-frequency = <19200000>;
+
+		qcom,infinite-mode = <0>;
+		//qcom,use-bam;
+		qcom,ver-reg-exists;
+		//qcom,bam-consumer-pipe-index = <20>;
+		//qcom,bam-producer-pipe-index = <21>;
+		qcom,master-id = <86>;
+		//qcom,use-pinctrl;
+		//cs-gpios = <&tlmm 83 0>;
+		//pinctrl-names = "spi_default", "spi_sleep";
+		//pinctrl-0 = <&spi_4_active &spi_4_cs_active>;//(from for 0-5)
+		//pinctrl-1 = <&spi_4_sleep &spi_4_cs_sleep>;	 //(from for 0-5)
+
+		//clock-names = "iface_clk", "core_clk";
+
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>; //(num for 1-6)
+	};
+	// nubia add end
 
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa";
@@ -2564,6 +2645,38 @@
 		qcom,ce-opp-freq = <171430000>;
 	};
 
+	//nubia add start
+	//enlarge memory for TA
+	#ifdef NUBIA_ENLARGE_TA_MEMORY
+	qcom_seecom: qseecom@B0000000 {
+		compatible = "qcom,qseecom";
+		reg = <0xB0000000 0x3200000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 0 0>,
+				<55 512 120000 1200000>,
+				<55 512 393600 3936000>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		clocks = <&clock_gcc clk_ce1_clk>,
+			 <&clock_gcc clk_qseecom_ce1_clk>,
+			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
+			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+	#else
 	qcom_seecom: qseecom@86600000 {
 		compatible = "qcom,qseecom";
 		reg = <0x86600000 0x2200000>;
@@ -2592,6 +2705,8 @@
 		qcom,ce-opp-freq = <171430000>;
 		qcom,qsee-reentrancy-support = <2>;
 	};
+	#endif
+	//nubia add end
 
 	qcom,qbt1000 {
 		compatible = "qcom,qbt1000";
@@ -2826,7 +2941,7 @@
 		reg = <0x70000 0x1000>;
 		qcom,sensor-id = <11>;
 		qcom,poll-ms = <100>;
-		qcom,limit-temp = <60>;
+		qcom,limit-temp = <80>;
 		qcom,temp-hysteresis = <10>;
 		qcom,therm-reset-temp = <115>;
 		qcom,freq-step = <4>;
@@ -2880,7 +2995,7 @@
 			qcom,mitigation-freq-khz = <576000>;
 			qcom,vph-high-threshold-uv = <3500000>;
 			qcom,vph-low-threshold-uv = <3300000>;
-			qcom,soc-low-threshold = <10>;
+			qcom,soc-low-threshold = <5>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
@@ -3019,7 +3134,7 @@
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
 
-		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,tasha-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
@@ -3032,7 +3147,7 @@
 				"msm-lsm-client", "msm-pcm-routing", "msm-cpe-lsm",
 				"msm-compr-dsp", "msm-pcm-dsp-noirq",
 				"msm-cpe-lsm.3";
-		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>, <&dai_mi2s>,
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>, <&dai_mi2s_tert>,<&dai_mi2s_quat>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
 				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>, <&afe_pcm_rx>,
@@ -3041,7 +3156,7 @@
 				<&incall_music_rx>, <&incall_music2_rx>,
 				<&sb_5_rx>, <&sb_6_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
-				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.2",
+				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.2","msm-dai-q6-mi2s.3",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
@@ -3312,11 +3427,13 @@
 			qcom,msm-mi2s-tx-lines = <0>;
 		};
 
-		dai_mi2s: qcom,msm-dai-q6-mi2s-tert {
+		dai_mi2s_tert: qcom,msm-dai-q6-mi2s-tert {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <2>;
-			qcom,msm-mi2s-rx-lines = <2>;
-			qcom,msm-mi2s-tx-lines = <1>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <0>;
+                        qcom,msm-mi2s-slave = <0>;
+                        qcom,msm-mi2s-ext-mclk = <0>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&tert_mi2s_active &tert_mi2s_sd0_active>;
 			pinctrl-1 = <&tert_mi2s_sleep &tert_mi2s_sd0_sleep>;
@@ -3325,8 +3442,13 @@
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <3>;
-			qcom,msm-mi2s-rx-lines = <1>;
-			qcom,msm-mi2s-tx-lines = <0>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <4>;
+                        qcom,msm-mi2s-slave = <0>;
+                        qcom,msm-mi2s-ext-mclk = <0>;
+                        pinctrl-names = "default", "sleep";
+                        pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active &quat_mi2s_sd1_active>;
+                        pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep &quat_mi2s_sd1_sleep>;
 		};
 	};
 

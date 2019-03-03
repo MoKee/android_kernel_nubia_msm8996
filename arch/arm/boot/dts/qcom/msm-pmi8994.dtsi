@@ -203,21 +203,47 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
-			qcom,fastchg-current-ma = <2000>;
-			qcom,float-voltage-mv = <4350>;
-			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
 			qcom,dc-psy-type = "Mains";
 			qcom,dc-psy-ma = <1500>;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
-			qcom,thermal-mitigation = <1500 700 600 0>;
-			qcom,parallel-usb-min-current-ma = <1400>;
-			qcom,parallel-usb-9v-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,pmic-revid = <&pmi8994_revid>;
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
+
+			/*ZTEMT Modify*/	
+			/*
+			*qcom,float-voltage-mv = <4350>;
+			*qcom,resume-delta-mv = <200>;
+			*qcom,fastchg-current-ma = <2000>;	
+			*qcom,dc-psy-type = "Mains";
+			*qcom,parallel-usb-min-current-ma = <1400>;
+			*qcom,parallel-usb-9v-min-current-ma = <900>;
+			*qcom,thermal-mitigation = <1500 700 600 0>;
+			*/
+			qcom,float-voltage-mv = <4400>;
+			qcom,resume-delta-mv = <50>;
+			qcom,fastchg-current-ma = <2000>;
+			qcom,parallel-usb-min-current-ma = <1200>;
+			qcom,parallel-usb-9v-min-current-ma = <800>;
+			qcom,thermal-mitigation = <1700 900 500 0>;
+			
+			/*ZTEMT Add*/
+			/*qcom,smbcharger-vadc = <&pmi8994_vadc>;*/	
+			qcom,bmd-pin-src	= "bpd_thm_id";
+			qcom,charging-timeout-mins = <768>;
+			qcom,parallel-main-chg-fcc-percent = <50>;
+			qcom,ibatmax-cool-ma = <750>;
+			qcom,cool-bat-mv = <4100>;
+			
+			nubia,warm-using-cntl;
+			nubia,warm-using-ibatt-ma = <500>;
+			nubia,warm-using-dec = <390>;
+
+			nubia,warm-chging-ma = <250>;
+			nubia,cool-chging-ma = <1200>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -316,17 +342,42 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
-			qcom,fg-iterm-ma = <125>;
 			qcom,fg-chg-iterm-ma = <100>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
-			qcom,fg-cc-cv-threshold-mv = <4340>;
 			qcom,pmic-revid = <&pmi8994_revid>;
+
+			/*ZTEMT modify*/
+			/*
+			*qcom,fg-iterm-ma = <125>;
+			*qcom,resume-soc = <95>;	
+			*qcom,fg-cc-cv-threshold-mv = <4340>;
+			*/
+			qcom,fg-iterm-ma = <150>;
+			qcom,resume-soc-raw = <0xfd>;
+			qcom,fg-cc-cv-threshold-mv = <4390>;
+			
+			/*ZTEMT Add*/
+			qcom,thermal-coefficients = [EC 85 75 4A FC 35];
+			qcom,warm-bat-decidegc = <430>;		//Fixed 53Deg to 43Deg
+			qcom,cool-bat-decidegc = <80>; 	    //Fixed -5Deg to 8Deg
+			qcom,hot-bat-decidegc = <500>; 		//Fixed 55Deg to 50Deg
+			qcom,cold-bat-decidegc = <(-50)>; 	//FIxed -6Deg to -5Deg
+			qcom,irq-volt-empty-mv = <3300>;
+			qcom,fg-cutoff-voltage-mv = <3100>;
+			qcom,fg-vbat-estimate-diff-mv = <200>;
+			qcom,fg-delta-soc = <1>;
+			qcom,fg-vbatt-low-threshold = <3420>;
+			qcom,vbat-estimate-diff-mv = <200>;
+			qcom,hold-soc-while-full;
+			com,ext-sense-type;
+			qcom,capacity-estimation-on;
 			qcom,capacity-learning-feedback;
+			nubia,use-default-batt-type = "lg-3000mah";
+
 
 			qcom,fg-soc@4000 {
 				status = "okay";
@@ -513,7 +564,7 @@
 				qcom,qpnp-lab-ps-enable;
 				qcom,qpnp-lab-nfet-size = <100>;
 				qcom,qpnp-lab-pfet-size = <100>;
-				qcom,qpnp-lab-max-precharge-time = <500>;
+				qcom,qpnp-lab-max-precharge-time = <300>;
 			};
 		};
 
@@ -534,7 +585,7 @@
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
 			qcom,vref-mv = <350>;
-			qcom,switch-freq-khz = <800>;
+			qcom,switch-freq-khz = <1600>;
 			qcom,ovp-mv = <29500>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
@@ -542,10 +593,12 @@
 			qcom,dim-mode = "hybrid";
 			qcom,hyb-thres = <625>;
 			qcom,sync-dly-us = <800>;
-			qcom,fs-curr-ua = <25000>;
+			qcom,fs-curr-ua = <20000>;
 			qcom,cons-sync-write-delay-us = <1000>;
-			qcom,led-strings-list = [00 01 02 03];
+			qcom,en-phase-stag;
+			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,en-cabc;
 		};
 
 		pmi8994_haptics: qcom,haptic@c000 {
@@ -558,24 +611,26 @@
 			qcom,pmic-revid = <&pmi8994_revid>;
 			vcc_pon-supply = <&pon_perph_reg>;
 			qcom,play-mode = "direct";
-			qcom,wave-play-rate-us = <5263>;
+			qcom,wave-play-rate-us = <4255>;
 			qcom,actuator-type = "lra";
-			qcom,wave-shape = "square";
-			qcom,vmax-mv = <2000>;
+			qcom,wave-shape = "sine";
+			qcom,vmax-mv = <1500>;
 			qcom,ilim-ma = <800>;
 			qcom,sc-deb-cycles = <8>;
 			qcom,int-pwm-freq-khz = <505>;
 			qcom,en-brake;
-			qcom,brake-pattern = [03 03 00 00];
+			qcom,brake-pattern = [03 03 03 03];
 			qcom,use-play-irq;
 			qcom,use-sc-irq;
 			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
 			qcom,wave-rep-cnt = <1>;
 			qcom,wave-samp-rep-cnt = <1>;
-			qcom,lra-high-z = "opt1";
-			qcom,lra-auto-res-mode = "qwd";
+			qcom,lra-high-z = "none";
+			qcom,lra-auto-res-mode = "none";
 			qcom,lra-res-cal-period = <4>;
+			qcom,ztemt_vibrator_ms =<22>;
 		};
+
 
 		qcom,leds@d000 {
 			compatible = "qcom,leds-qpnp";
@@ -586,38 +641,79 @@
 			red_led: qcom,rgb_0 {
 				label = "rgb";
 				qcom,id = <3>;
-				qcom,mode = "pwm";
+				qcom,mode = "lpg";
 				pwms = <&pmi8994_pwm_3 0 0>;
 				qcom,pwm-us = <1000>;
+				qcom,start-idx = <0>;
+                qcom,idx-len = <63>;
+			    qcom,duty-pcts= [02 04 06 08 09 0a 0c 0e 10 11 12 14 16 18 19 1a 1b 1c 1e 20 22 24 26 28 
+			     19 2a 2c 2e 2f 30 32 34 36 38 39 3a 3b 3c 3d 3e 40 42 44 46 48 49 4a 4b 4c 4e 50 52 54 56 58 59 5a 5b 5c 5e 60 62 64];
+                qcom,lut-flags = <27>;
+                qcom,pause-lo = <0>;
+			    qcom,pause-hi = <0>;
+			    qcom,ramp-step-ms = <200>;
 				qcom,max-current = <12>;
+				qcom,is_auto_breath = <1>;
+				qcom,led_channel = <0x10>;
 				qcom,default-state = "off";
-				linux,name = "red";
-				linux,default-trigger =
-					"battery-charging";
+				linux,name = "nubia_led";
+				nubia,grade_percentage = <100>;
+				nubia,grade_scale_offset = <10> ;
+				nubia,fade_time = <3>;
+				nubia,fullon_time = <0>;
+				nubia,fulloff_time = <4>;
+				nubia,onceblink_max_grade = <70>;
+				nubia,autoblink_max_grade = <100>;
+				qcom,in-order-command-processing;
+				linux,default-trigger = "none";
 			};
 
 			green_led: qcom,rgb_1 {
 				label = "rgb";
 				qcom,id = <4>;
-				qcom,mode = "pwm";
+				qcom,mode = "lpg";
 				pwms = <&pmi8994_pwm_2 0 0>;
 				qcom,pwm-us = <1000>;
+				qcom,start-idx = <0>;
+			    qcom,idx-len = <63>;
+			    qcom,duty-pcts= [02 04 06 08 09 0a 0c 0e 10 11 12 14 16 18 19 1a 1b 1c 1e 20 22 24 26 28 
+			     19 2a 2c 2e 2f 30 32 34 36 38 39 3a 3b 3c 3d 3e 40 42 44 46 48 49 4a 4b 4c 4e 50 52 54 56 58 59 5a 5b 5c 5e 60 62 64];
+                qcom,lut-flags = <27>;
+                qcom,pause-lo = <0>;
+			    qcom,pause-hi = <0>;
+			    qcom,ramp-step-ms = <200>;
 				qcom,max-current = <12>;
+				qcom,is_auto_breath = <0>;
+				qcom,led_channel = <8>;
 				qcom,default-state = "off";
 				linux,name = "green";
-				linux,default-trigger = "battery-full";
+				linux,default-trigger = "none";
+				nubia,grade_percentage = <30>;
+				nubia,grade_scale_offset = <0> ;
 			};
 
 			blue_led: qcom,rgb_2 {
 				label = "rgb";
 				qcom,id = <5>;
-				qcom,mode = "pwm";
+				qcom,mode = "lpg";
 				pwms = <&pmi8994_pwm_1 0 0>;
 				qcom,pwm-us = <1000>;
-				qcom,max-current = <12>;
+                qcom,start-idx = <0>;
+                qcom,idx-len = <63>;
+			    qcom,duty-pcts= [02 04 06 08 09 0a 0c 0e 10 11 12 14 16 18 19 1a 1b 1c 1e 20 22 24 26 28 
+			     19 2a 2c 2e 2f 30 32 34 36 38 39 3a 3b 3c 3d 3e 40 42 44 46 48 49 4a 4b 4c 4e 50 52 54 56 58 59 5a 5b 5c 5e 60 62 64];
+                qcom,lut-flags = <27>;
+                qcom,pause-lo = <0>;
+			    qcom,pause-hi = <0>;
+			    qcom,ramp-step-ms = <200>;
 				qcom,default-state = "off";
+				qcom,max-current = <12>;
+				qcom,is_auto_breath = <0>;
+				qcom,led_channel = <8>;
 				linux,name = "blue";
-				linux,default-trigger = "boot-indication";
+				linux,default-trigger = "none";
+				nubia,grade_percentage = <30>;
+				nubia,grade_scale_offset = <0> ;
 			};
 		};
 
@@ -673,7 +769,7 @@
 				qcom,default-led-trigger =
 						"torch0_trigger";
 				qcom,id = <0>;
-				qcom,current = <120>;
+				qcom,current = <25>;
 				qcom,max-current = <200>;
 			};
 
