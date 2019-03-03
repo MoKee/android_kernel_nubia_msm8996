@@ -8,6 +8,12 @@
 config CLOCKSOURCE_WATCHDOG
 	bool
 
+config NUBIA_SOLVE_TIME_LIST_CORRUPT
+	bool "nubia solve time list corrupt"
+	default y
+	help
+	  This nubia solve time list corrupt
+
 # Architecture has extra clocksource data
 config ARCH_CLOCKSOURCE_DATA
 	bool
