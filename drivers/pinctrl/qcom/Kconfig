@@ -134,4 +134,11 @@ config PINCTRL_MSM8909
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  QTI TLMM block found in the QTI MSM8909 platform.
+
+config IGNORE_XPU_CRASH_GPIO
+	bool "nubia ignore xpu crash gpio"
+	default y
+	help
+	  This ignore xpu crarsh gpio for debug
+
 endif

@@ -82,3 +82,14 @@ config FB_MSM_MDSS_FRC_DEBUG
 	frame rate control (FRC) debugging features to: Collect video frame
 	statistics and check whether its output pattern matches expected
 	cadence.
+config NUBIA_LCD_DISP_PREFERENCE
+	bool "nubia lcd disp preference includes color enhancement and temperature"
+	default n
+config NUBIA_LCD_BACKLIGHT_CURVE
+	bool "nubia lcd backlight correct curve for brightness"
+	default n
+config NUBIA_LCD_JDI_R63452_1080P_5P5
+	bool "lcd jdi r63452 1080p 5p5"
+	default n
+	---help---
+	JDI LCD and TP seq modifications.

@@ -275,6 +275,9 @@ struct dwc3_msm {
 	struct pm_qos_request   pm_qos_req_dma;
 	struct delayed_work     perf_vote_work;
 	enum dwc3_perf_mode	curr_mode;
+#ifdef CONFIG_ZTEMT_CHARGER
+    struct hrtimer  chg_hrtimer;
+#endif
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1856,6 +1859,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
 					PWR_EVNT_LPM_OUT_L1_MASK, 1);
 
 		atomic_set(&dwc->in_lpm, 0);
+#ifdef CONFIG_ZTEMT_CHARGER
+        pr_err("%s():cancel HRTIMER\n",__func__);
+        hrtimer_cancel(&mdwc->chg_hrtimer);
+#endif
 		break;
 	case DWC3_CONTROLLER_NOTIFY_OTG_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
@@ -2343,6 +2350,10 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 	} else {
 		dbg_event(0xFF, "BSV clear", 0);
 		clear_bit(B_SESS_VLD, &mdwc->inputs);
+#ifdef CONFIG_ZTEMT_CHARGER
+        pr_err("%s():cancel HRTIMER\n",__func__);
+        hrtimer_cancel(&mdwc->chg_hrtimer);
+#endif
 	}
 
 	if (mdwc->suspend) {
@@ -2650,6 +2661,11 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		case POWER_SUPPLY_TYPE_USB:
 			mdwc->chg_type = DWC3_SDP_CHARGER;
 			mdwc->voltage_max = MICRO_5V;
+#ifdef CONFIG_ZTEMT_CHARGER
+            pr_err("%s():cancel HRTIMER\n",__func__);
+            hrtimer_start(&mdwc->chg_hrtimer,
+                ktime_set(1,0),HRTIMER_MODE_REL);
+#endif
 			break;
 		case POWER_SUPPLY_TYPE_USB_DCP:
 			mdwc->chg_type = DWC3_DCP_CHARGER;
@@ -2925,6 +2941,20 @@ static ssize_t xhci_link_compliance_store(struct device *dev,
 }
 
 static DEVICE_ATTR_RW(xhci_link_compliance);
+
+#ifdef CONFIG_ZTEMT_CHARGER
+static enum hrtimer_restart chg_hrtimer_func(struct hrtimer *hrtimer)
+{
+	  struct dwc3_msm *mdwc = container_of(hrtimer, struct dwc3_msm, chg_hrtimer);
+	   
+    pr_err("%s():Inside timer expired.\n",__func__);
+    pr_err("%s():Do floating charger update.\n",__func__);
+    
+    dwc3_msm_gadget_vbus_draw(mdwc, 900);
+
+    return HRTIMER_NORESTART;
+}
+#endif
 
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
@@ -3301,6 +3331,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
+#ifdef CONFIG_ZTEMT_CHARGER
+    hrtimer_init(&mdwc->chg_hrtimer,CLOCK_MONOTONIC,HRTIMER_MODE_ABS);
+    mdwc->chg_hrtimer.function = chg_hrtimer_func;
+#endif
 
 	/* Update initial ID state */
 	if (mdwc->pmic_id_irq) {

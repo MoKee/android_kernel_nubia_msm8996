@@ -21,7 +21,12 @@ config DIAG_OVER_USB
 	help
 	 This feature helps segregate code required for DIAG traffic to go over USB.
 endmenu
-
+config ZTEMT_DIAG_REBOOT_CMD
+	bool "Enable DIAG handle reboot cmd"
+        depends on ARCH_MSM
+	default y
+	help
+	 This feature helps reboot cmd by diag.
 menu "HSIC/SMUX support for DIAG"
 
 config DIAGFWD_BRIDGE_CODE

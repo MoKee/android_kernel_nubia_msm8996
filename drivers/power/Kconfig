@@ -14,6 +14,12 @@ config POWER_SUPPLY_DEBUG
 	  Say Y here to enable debugging messages for power supply class
 	  and drivers.
 
+config ZTEMT_POWER_DEBUG
+	bool "ZTEMT Power Debug Feature"
+	default y
+	help
+	  ZTEMT Power Debug Feature
+
 config PDA_POWER
 	tristate "Generic PDA/phone power driver"
 	depends on !S390
@@ -636,6 +642,45 @@ config MSM_BCL_PERIPHERAL_CTL
 	  provides routines to configure and monitor the BCL
 	  PMIC peripheral.
 
+################ztemt hw_version config start################
+config ZTEMT_HW_VERSION
+	bool "ZTEMT HW VERSION
+	default n
+	help
+	  ZTEMT HW VERSION
+
+config ZTEMT_CHARGER
+	bool "ZTEMT For MSMxxxx Platfrom Charge"
+	default n
+	help
+	  ZTEMT For MSMxxxx Platfrom Charge
+config ZTEMT_FUEL_GAUGE
+	bool "ZTEMT For MSMxxxx Platfrom Fuel Gauge"
+	default n
+	help
+	  ZTEMT For MSMxxxx Platfrom fuel gauge
+
+config ZTEMT_HW_VERSION_DEBUG
+	bool "ZTEMT HW VERSION DEBUG"
+	depends on ZTEMT_HW_VERSION
+	default n
+	help
+		ZTEMT HW VERSION DEBUG
+
+config ZTEMT_HW_VER_BY_ADC
+	bool "ZTEMT HW VER BY ADC"
+	depends on ZTEMT_HW_VERSION
+	default n
+	help
+		ZTEMT HW VER BY ADC
+
+config ZTEMT_HW_CONFIG_BY_GPIO
+	bool "ZTEMT HW CONFIG BY GPIO"
+	depends on ZTEMT_HW_VERSION
+	default n
+	help
+		ZTEMT HW CONFIG BY GPIO
+################ztemt hw_version config end#################
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY

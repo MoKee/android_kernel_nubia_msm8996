@@ -36,6 +36,9 @@ struct cnss_dev_platform_ops {
 					     void *adapter);
 	int (*unregister_tsf_captured_handler)(void *adapter);
 };
+extern const char* ztemt_get_hw_wifi(void);
+#define SFEFG77B_WIFI_FRONT_END_VERSION "wifi_samsung"
+#define QM48184_WIFI_FRONT_END_VERSION "wifi_qorvo"
 
 int cnss_pci_request_bus_bandwidth(int bandwidth);
 int cnss_sdio_request_bus_bandwidth(int bandwidth);

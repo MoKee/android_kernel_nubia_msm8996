@@ -726,7 +726,9 @@ struct mdss_panel_info {
 	void *edid_data;
 	void *dba_data;
 	void *cec_data;
-
+#ifdef CONFIG_NUBIA_LCD_DISP_PREFERENCE
+	bool panel_ready_for_cabc;
+#endif
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
 

@@ -1019,6 +1019,9 @@ static u8 cnss_get_pci_dev_bus_number(struct pci_dev *pdev)
 
 void cnss_setup_fw_files(u16 revision)
 {
+	const char *wifi_front_end;
+	wifi_front_end = ztemt_get_hw_wifi();
+
 	switch (revision) {
 
 	case QCA6174_FW_1_1:
@@ -1064,8 +1067,17 @@ void cnss_setup_fw_files(u16 revision)
 	case QCA6174_FW_3_2:
 		strlcpy(penv->fw_files.image_file, "qwlan30.bin",
 			CNSS_MAX_FILE_NAME);
+
+		if(strncmp(SFEFG77B_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
 		strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
 			CNSS_MAX_FILE_NAME);
+		else if(strncmp(QM48184_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
+			strlcpy(penv->fw_files.board_data, "qm48184.bin",
+				CNSS_MAX_FILE_NAME);
+		else
+			strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
+				CNSS_MAX_FILE_NAME);
+
 		strlcpy(penv->fw_files.otp_data, "otp30.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.utf_file, "utf30.bin",

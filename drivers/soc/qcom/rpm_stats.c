@@ -80,6 +80,8 @@ struct msm_rpmstats_kobj_attr {
 
 static struct dentry *heap_dent;
 
+static struct msm_rpmstats_platform_data *nb_pdata;
+static char flag = 0;
 static inline u64 get_time_in_sec(u64 counter)
 {
 	do_div(counter, MSM_ARCH_TIMER_FREQ);
@@ -136,6 +138,52 @@ static inline u64 msm_rpmstats_read_quad_register_v2(void __iomem *regbase,
 	return dst;
 }
 
+static inline int msm_rpmstats_copy_stats_v2_debug(
+			struct msm_rpmstats_private_data *prvdata, char *buf)
+{
+	void __iomem *reg;
+	struct msm_rpm_stats_data_v2 data;
+	int i, length;
+	char  stat_type[5];
+	size_t size = 0;
+	char buf_tmp[50];
+	int vmin_cnt;
+	 stat_type[4] = 0;
+
+	reg = prvdata->reg_base;
+
+	for (i = 0, length = 0; i < prvdata->num_records; i++) {
+
+		data.stat_type = msm_rpmstats_read_long_register_v2(reg, i,
+				offsetof(struct msm_rpm_stats_data_v2,
+					stat_type));
+		data.count = msm_rpmstats_read_long_register_v2(reg, i,
+				offsetof(struct msm_rpm_stats_data_v2, count));
+		data.last_entered_at = msm_rpmstats_read_quad_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					last_entered_at));
+		data.last_exited_at = msm_rpmstats_read_quad_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					last_exited_at));
+
+		data.accumulated = msm_rpmstats_read_quad_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					accumulated));
+		data.client_votes = msm_rpmstats_read_long_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					client_votes));
+		length += msm_rpmstats_append_data_to_buf(prvdata->buf + length,
+				&data, sizeof(prvdata->buf) - length);
+		prvdata->read_idx++;
+		memcpy(stat_type, &data, sizeof(u32));
+             size += sprintf(buf_tmp+size,"RPM:%s - count:%d -",stat_type,data.count);
+		if(!strcmp("vmin",stat_type))
+			vmin_cnt = data.count;
+	}
+	// copy result to buf
+	memcpy(buf, buf_tmp, sizeof(buf_tmp));
+	return vmin_cnt;
+}
 static inline int msm_rpmstats_copy_stats_v2(
 			struct msm_rpmstats_private_data *prvdata)
 {
@@ -339,6 +387,65 @@ static int msm_rpmstats_file_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/**
+*function:get the count of rpm vdd min
+*@buf: save the result
+*@return : Vdd-min value
+*/
+u32 msm_rpmstats_get(char *buf)
+{
+/**************** open *****************/
+	struct msm_rpmstats_private_data *prvdata;
+	struct msm_rpmstats_platform_data *pdata;
+
+	u32 count = 0;
+//flag: if there is no such device , flag = 0; 
+	if(flag) {
+		pdata = nb_pdata;
+
+		prvdata =
+			kmalloc(sizeof(struct msm_rpmstats_private_data), GFP_KERNEL);
+
+		if (!prvdata)
+			return -ENOMEM;
+		
+
+		prvdata->reg_base = ioremap_nocache(pdata->phys_addr_base,
+						pdata->phys_size);
+		if (!prvdata->reg_base) {
+			kfree(prvdata);
+			prvdata = NULL;
+			pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
+				__func__, &pdata->phys_addr_base,
+				pdata->phys_size);
+			return -EBUSY;
+		}
+
+		prvdata->read_idx = prvdata->num_records =  prvdata->len = 0;
+		prvdata->platform_data = pdata;
+		if (pdata->version == 2)
+			prvdata->num_records = 2;
+
+
+	/****************  read *****************/
+		if (prvdata->platform_data->version == 1) {
+			if (!prvdata->num_records)
+				prvdata->num_records = readl_relaxed(prvdata->reg_base);
+		}
+
+		if (prvdata->platform_data->version == 1)
+				prvdata->len = msm_rpmstats_copy_stats(prvdata);
+		else if (prvdata->platform_data->version == 2)
+				count = msm_rpmstats_copy_stats_v2_debug(prvdata,buf);
+
+		if (prvdata->reg_base)
+			iounmap(prvdata->reg_base);
+		kfree(prvdata);
+	}
+	return count;
+}
+
+EXPORT_SYMBOL(msm_rpmstats_get);
 static const struct file_operations msm_rpmstats_fops = {
 	.owner	  = THIS_MODULE,
 	.open	  = msm_rpmstats_file_open,
@@ -562,6 +669,8 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 	msm_rpmstats_create_sysfs(pdata);
 
 	platform_set_drvdata(pdev, dent);
+	nb_pdata = pdata;
+	flag = 1;
 	return 0;
 }
 
@@ -573,6 +682,7 @@ static int msm_rpmstats_remove(struct platform_device *pdev)
 	debugfs_remove(dent);
 	debugfs_remove(heap_dent);
 	platform_set_drvdata(pdev, NULL);
+	flag = 0;
 	return 0;
 }
 

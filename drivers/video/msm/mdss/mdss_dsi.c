@@ -26,6 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/msm-bus.h>
 #include <linux/pm_qos.h>
+#include <linux/reboot.h>
 
 #include "mdss.h"
 #include "mdss_panel.h"
@@ -34,11 +35,18 @@
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
 
+#ifdef CONFIG_NUBIA_LCD_DISP_PREFERENCE
+#include "nubia_disp_preference.h"
+#endif
 #define XO_CLK_RATE	19200000
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
 
 /* Master structure to hold all the information about the DSI/panel */
 static struct mdss_dsi_data *mdss_dsi_res;
+
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+static bool jdi_lcd_power_off = false;
+#endif
 
 #define DSI_DISABLE_PC_LATENCY 100
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
@@ -271,10 +279,17 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev,
 
 	return rc;
 }
-
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+extern unsigned int nubia_wakeup_gesture;
+extern void ztemt_get_hw_pcb_version(char* result);
+#endif
 static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+	char hw_ver[10];
+	int i= 0;
+#endif
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (pdata == NULL) {
@@ -286,6 +301,40 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+	if (jdi_lcd_power_off || !nubia_wakeup_gesture) {
+		ret = mdss_dsi_panel_reset(pdata, 0);
+		if (ret) {
+			pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+			ret = 0;
+		}
+		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+			pr_debug("reset disable: pinctrl not enabled\n");
+
+		ztemt_get_hw_pcb_version(hw_ver);
+	       pr_debug("caiwutang hw_ver = %s",hw_ver);
+
+	       for(i=ctrl_pdata->panel_power_data.num_vreg-1;i>=0;i--){
+	               pr_debug("caiwutang power name = %s",ctrl_pdata->panel_power_data.vreg_config[i].vreg_name);
+	               #ifdef CONFIG_NX531J_MB_A_LCD_VDDIO_ALWAY_ON
+	               if(!strcmp(ctrl_pdata->panel_power_data.vreg_config[i].vreg_name,"vddio") && !strcmp(hw_ver,"MB_A")){
+	                       pr_debug("caiwutang vddio no power off");
+	                       continue;
+	               }
+	               #endif
+	               ret = msm_dss_enable_vreg(
+	               &ctrl_pdata->panel_power_data.vreg_config[i],
+	               1, 0);
+	               if (ret){
+	                       pr_err("%s: failed to disable vregs for %s\n",
+	                               __func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+	                       return ret;
+	               }
+	       }
+
+		pr_err("%s: jdi_lcd_power_off!\n", __func__);
+	}
+#else
 	ret = mdss_dsi_panel_reset(pdata, 0);
 	if (ret) {
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
@@ -301,6 +350,7 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 	if (ret)
 		pr_err("%s: failed to disable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+#endif
 
 end:
 	return ret;
@@ -318,6 +368,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+#ifndef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
 		ctrl_pdata->panel_power_data.num_vreg, 1);
@@ -326,6 +377,24 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 		return ret;
 	}
+#endif
+
+	usleep_range(5000,5000);
+
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+		if (!nubia_wakeup_gesture) {
+#endif
+	ret = msm_dss_enable_vreg(
+		ctrl_pdata->panel_power_data.vreg_config,
+		ctrl_pdata->panel_power_data.num_vreg, 1);
+	if (ret) {
+		pr_err("%s: failed to enable vregs for %s\n",
+			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+		return ret;
+	}
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+		}
+#endif
 
 	/*
 	 * If continuous splash screen feature is enabled, then we need to
@@ -338,14 +407,39 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
 			pr_debug("reset enable: pinctrl not enabled\n");
 
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+		if (!nubia_wakeup_gesture) {
+			ret = mdss_dsi_panel_reset(pdata, 1);
+			if (ret)
+				pr_err("%s: Panel reset failed. rc=%d\n",
+						__func__, ret);
+		}
+#endif
+#ifndef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
 		ret = mdss_dsi_panel_reset(pdata, 1);
 		if (ret)
 			pr_err("%s: Panel reset failed. rc=%d\n",
 					__func__, ret);
+#endif
 	}
 
 	return ret;
 }
+
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+static int jdi_lcd_reboot_nb_handler(struct notifier_block *cb, unsigned long code, void *unused)
+{
+	switch (code) {
+	case SYS_DOWN:
+	case SYS_HALT:
+	case SYS_POWER_OFF:
+		jdi_lcd_power_off = true;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
+}
+#endif
 
 static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 {
@@ -2657,6 +2751,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		if (ctrl_pdata->on_cmds.link_state == DSI_HS_MODE)
 			rc = mdss_dsi_unblank(pdata);
 		pdata->panel_info.esd_rdy = true;
+#ifdef CONFIG_NUBIA_LCD_DISP_PREFERENCE
+		nubia_disp_preference();
+#endif
 		break;
 	case MDSS_EVENT_BLANK:
 		power_state = (int) (unsigned long) arg;
@@ -3167,6 +3264,11 @@ end:
 	return rc;
 }
 
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+	static struct notifier_block jdi_lcd_reboot_nb = {
+		.notifier_call = jdi_lcd_reboot_nb_handler,
+	};
+#endif
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -3356,6 +3458,9 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	else
 		ctrl_pdata->shared_data->dsi1_active = true;
 
+#ifdef CONFIG_NUBIA_LCD_JDI_R63452_1080P_5P5
+	register_reboot_notifier(&jdi_lcd_reboot_nb);
+#endif
 	return 0;
 
 error_shadow_clk_deinit:
@@ -4164,7 +4269,7 @@ static void mdss_dsi_set_prim_panel(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		}
 	}
 }
-
+u32 *tp_splash_enable=NULL;
 int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	struct device_node *pan_node, struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -4297,6 +4402,7 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	pinfo->cont_splash_enabled =
 		ctrl_pdata->mdss_util->panel_intf_status(pinfo->pdest,
 		MDSS_PANEL_INTF_DSI) ? true : false;
+	tp_splash_enable = &(pinfo->cont_splash_enabled);
 
 	pr_info("%s: Continuous splash %s\n", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");

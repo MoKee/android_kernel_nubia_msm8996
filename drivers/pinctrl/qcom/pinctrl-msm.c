@@ -38,7 +38,9 @@
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
 #define TLMM_EBI2_EMMC_GPIO_CFG 0x111000
-
+#ifdef CONFIG_IGNORE_XPU_CRASH_GPIO
+#define EXCLUSIVE_GPIO_NUMBER    81
+#endif
 /**
  * struct msm_pinctrl - state for a pinctrl-msm device
  * @dev:            device handle.
@@ -537,7 +539,12 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+#ifdef CONFIG_IGNORE_XPU_CRASH_GPIO
+		if(EXCLUSIVE_GPIO_NUMBER != i)
+			msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
+#else
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
+#endif
 		seq_puts(s, "\n");
 	}
 }
