@@ -180,7 +180,11 @@ static inline void init_timer_on_stack_key(struct timer_list *timer,
  */
 static inline int timer_pending(const struct timer_list * timer)
 {
+#ifdef CONFIG_NUBIA_SOLVE_TIME_LIST_CORRUPT
+	return timer->entry.next != NULL && timer->entry.prev != LIST_POISON2;
+#else
 	return timer->entry.next != NULL;
+#endif
 }
 
 extern void add_timer_on(struct timer_list *timer, int cpu);
