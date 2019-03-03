@@ -2,6 +2,6 @@
 
 config MACH_NUBIA_NX531J
 	bool "nubia NX531J"
-	depends on ARCH_QCOM
+	depends on ARCH_MSM || ARCH_QCOM
 	help
 	  Support for NX531J nubia variants
