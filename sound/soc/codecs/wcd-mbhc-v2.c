@@ -927,7 +927,11 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_READ(WCD_MBHC_HPHL_SCHMT_RESULT, hphl_sch_res);
 	WCD_MBHC_REG_READ(WCD_MBHC_HPHR_SCHMT_RESULT, hphr_sch_res);
 	if (!(hphl_sch_res || hphr_sch_res)) {
+#ifdef CONFIG_ZTEMT_AUDIO
+		plug_type = MBHC_PLUG_TYPE_HEADSET;  //kangting modify for headset detect error
+#else
 		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+#endif
 		pr_debug("%s: Cross connection identified\n", __func__);
 	} else {
 		pr_debug("%s: No Cross connection found\n", __func__);
@@ -1198,7 +1202,11 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		if (!btn_result && !hs_comp_res)
 			plug_type = MBHC_PLUG_TYPE_HEADSET;
 		else if (!btn_result && hs_comp_res)
+#ifdef CONFIG_ZTEMT_AUDIO
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+#else
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
+#endif
 		else
 			plug_type = MBHC_PLUG_TYPE_INVALID;
 	} else {
@@ -1356,7 +1364,11 @@ correct_plug_type:
 		WCD_MBHC_REG_READ(WCD_MBHC_MIC_SCHMT_RESULT, mic_sch);
 		if (hs_comp_res && !(hphl_sch || mic_sch)) {
 			pr_debug("%s: cable is extension cable\n", __func__);
+#ifdef CONFIG_ZTEMT_AUDIO
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+#else
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
+#endif
 			wrk_complete = true;
 		} else {
 			pr_debug("%s: cable might be headset: %d\n", __func__,
@@ -1444,6 +1456,8 @@ exit:
 								MIC_BIAS_2);
 	}
 
+//kangting modify for iphone HS detect error start
+#ifndef CONFIG_ZTEMT_AUDIO
 	if (mbhc->mbhc_cfg->detect_extn_cable &&
 	    ((plug_type == MBHC_PLUG_TYPE_HEADPHONE) ||
 	     (plug_type == MBHC_PLUG_TYPE_HEADSET)) &&
@@ -1452,6 +1466,9 @@ exit:
 		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM, true);
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
+#endif
+//kangting modify for iphone HS detect error end
+
 	if (mbhc->mbhc_cb->set_cap_mode)
 		mbhc->mbhc_cb->set_cap_mode(codec, micbias1, micbias2);
 

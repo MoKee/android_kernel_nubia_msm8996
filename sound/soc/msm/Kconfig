@@ -3,6 +3,8 @@ menu "MSM SoC Audio support"
 config SND_SOC_MSM_HOSTLESS_PCM
 	tristate
 
+config QCOM_MI2S
+	tristate "QCOM MI2S"
 config SND_SOC_MSM_QDSP6V2_INTF
 	bool "SoC Q6 audio driver for APQ8084"
 	help
@@ -162,6 +164,7 @@ config SND_SOC_MSM8996
 	select SND_SOC_CPE
 	select MSM_ULTRASOUND
 	select DOLBY_DS2
+	select QCOM_MI2S
 	select SND_HWDEP
         select DTS_EAGLE
 	help
