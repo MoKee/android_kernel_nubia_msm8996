@@ -1,0 +1,24 @@
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/sensor
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/codecs
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/isps
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/pproc
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/msm_vb2
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/camera
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/jpeg_10
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/jpeg_dma
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/fd
+ccflags-y += -Idrivers/media/platform/msm/nubiacamera/common
+
+obj-$(CONFIG_NUBIA_CAMERA) += common/
+obj-$(CONFIG_NUBIA_CAMERA) += msm.o
+obj-$(CONFIG_NUBIA_CAMERA) += camera/
+obj-$(CONFIG_NUBIA_CAMERA) += msm_vb2/
+obj-$(CONFIG_NUBIA_CAMERA) += sensor/
+obj-$(CONFIG_NUBIA_CAMERA) += pproc/
+obj-$(CONFIG_NUBIA_CAMERA) += isp/
+obj-$(CONFIG_NUBIA_CAMERA) += ispif/
+obj-$(CONFIG_MSMB_JPEG) += jpeg_10/
+obj-$(CONFIG_MSM_JPEGDMA) += jpeg_dma/
+obj-$(CONFIG_NUBIA_CAMERA) += msm_buf_mgr/
+obj-$(CONFIG_MSM_FD) += fd/

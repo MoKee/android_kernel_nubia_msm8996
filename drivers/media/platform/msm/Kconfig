@@ -38,15 +38,30 @@ menuconfig MSMB_CAMERA
 	  adds support for the camera driver stack including sensor, isp
 	  and postprocessing drivers.
 
+menuconfig NUBIA_CAMERA
+	bool "Nubia camera and video capture support"
+	depends on ARCH_MSM && VIDEO_V4L2 && I2C
+	---help---
+	  use nubia camera source
+
 config MSMB_CAMERA_DEBUG
 	bool "QTI MSM camera 2.0 debugging with printk"
 	depends on MSMB_CAMERA
 	---help---
 	  Enable printk() debug for msm camera 2.0
 
+config NUBIA_CAMERA_DEBUG
+	bool "Nubia camera 2.0 debugging with printk"
+	depends on NUBIA_CAMERA
+	---help---
+	  Enable printk() debug for nubia camera 2.0
+
 if MSMB_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA
+if NUBIA_CAMERA
+source "drivers/media/platform/msm/nubiacamera/Kconfig"
+endif
 
 source "drivers/media/platform/msm/ais/Kconfig"
 source "drivers/media/platform/msm/dvb/Kconfig"
