@@ -2627,6 +2627,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	int rc = 0;
 #ifdef  CONFIG_NUBIA_LCD_DISP_PREFERENCE
 	int i;
+	int len = 0;
         u32 colortmp[3];
 #endif
 	const char *data;
