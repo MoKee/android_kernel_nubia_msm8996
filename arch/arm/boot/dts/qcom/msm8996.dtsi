@@ -178,7 +178,7 @@
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,verify";
-					status = "ok";
+					status = "disabled";
 				 };
 			};
 		};
