@@ -543,7 +543,9 @@ static int ramoops_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	dev_set_drvdata(dev, pdata);
+	err = dev_set_drvdata(dev, pdata);
+	if (err)
+		goto fail_out;
 
 	if (pdev->dev.of_node)
 		ramoops_of_init(pdev);
