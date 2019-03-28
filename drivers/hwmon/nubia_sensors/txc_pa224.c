@@ -225,6 +225,7 @@ static int pa224_read_file(char *filename, u8* param)
 {
 	struct file  *fop;
 	mm_segment_t old_fs;
+	int vfs_retval = -EINVAL;
 
 	fop = filp_open(filename, O_RDONLY, 0444);
 	if (IS_ERR(fop)) {
@@ -235,9 +236,13 @@ static int pa224_read_file(char *filename, u8* param)
 	old_fs = get_fs();
 	set_fs(get_ds()); //set_fs(KERNEL_DS);
 
-	fop->f_op->llseek(fop, 0, 0);
-	fop->f_op->read(fop, param, strlen(param), &fop->f_pos);
-
+	//fop->f_op->llseek(fop, 0, 0);
+	//fop->f_op->read(fop, param, strlen(param), &fop->f_pos);
+	fop->f_pos = 0;
+	vfs_retval = vfs_read(fop, param, strlen(param), &fop->f_pos);
+	if (vfs_retval < 0) {
+		SENSOR_LOG_ERROR("[write file <%s>failed]\n",filename);
+	}
 	set_fs(old_fs);
 
 	filp_close(fop, NULL);
@@ -249,6 +254,7 @@ static ssize_t pa224_write_file(char *filename, u8* param, int count)
 {
 	struct file  *fop;
 	mm_segment_t old_fs;
+	int vfs_retval = -EINVAL;
 
 	fop = filp_open(filename, O_CREAT | O_RDWR | O_TRUNC, 0666);
 	if (IS_ERR(fop)) {
@@ -258,7 +264,11 @@ static ssize_t pa224_write_file(char *filename, u8* param, int count)
 
 	old_fs = get_fs();
 	set_fs(get_ds()); //set_fs(KERNEL_DS);
-	fop->f_op->write(fop, (char *)param, count, &fop->f_pos);
+	//fop->f_op->write(fop, (char *)param, count, &fop->f_pos);
+	vfs_retval = vfs_write(fop, (char *)param, count, &fop->f_pos);
+	if (vfs_retval < 0) {
+		SENSOR_LOG_ERROR("[write file <%s>failed]\n",filename);
+	}
 	set_fs(old_fs);
 
 	filp_close(fop, NULL);
@@ -932,7 +942,7 @@ static int pa224_check_intr(struct i2c_client *client)
 			data->ps_thrd_high = PA24_PS_OFFSET_MAX;
 			data->ps_thrd_low = PA24_PS_OFFSET_MAX - 1;
 		}
-		msleep(saturation_delay);
+		//msleep(saturation_delay);
 		SENSOR_LOG_INFO("Sun light!!, ht=%d, lt=%d, far_ps_min=%d\n", data->ps_thrd_high, data->ps_thrd_low, far_ps_min);
 		data->ps_status = PA24_PS_FAR_DISTANCE;
 		goto check_intr_exit;
@@ -969,7 +979,7 @@ static int pa224_check_intr(struct i2c_client *client)
 				pa224_report_event(data);
 			}	
 		}
-		msleep(sequence_dealy);	
+		//msleep(sequence_dealy);
 	}
 	//NEAR 
 	else if (psdata > data->ps_thrd_high)
@@ -979,7 +989,7 @@ static int pa224_check_intr(struct i2c_client *client)
 			res = i2c_read_reg(client, REG_PS_DATA, ps_seq_near+i);
 			if (i > 0)
 				slope[i-1] = (int)(ps_seq_near[i] - ps_seq_near[i-1]);
-			mdelay(5);
+			//mdelay(5);
 		}
 
 		//pa224_get_ps_slope_array(ps_seq_near, slope, psdata, ps_ary_size);
@@ -1046,7 +1056,7 @@ static int pa224_check_intr(struct i2c_client *client)
 				}
 				pa224_report_event(data);
             }
-			msleep(sequence_dealy);
+			//msleep(sequence_dealy);
 		} else {
 			i2c_write_reg(client,REG_CFG1,
 					(PA24_LED_CURR << 4)| (PA24_PS_PRST << 2) );
@@ -1123,13 +1133,14 @@ static void pa224_work_func_irq(struct work_struct *work)
 	pa224_check_intr(client);
 }
 
-static irqreturn_t pa224_irq(int irq, void *info)
+static irqreturn_t pa224_irq(int irq, void *handle)
 {
-	struct i2c_client *client=(struct i2c_client *)info;
-	struct pa224_data *data = i2c_get_clientdata(client);
-	if (0 == queue_work(data->irq_work_queue, &data->irq_dwork)){
-	    SENSOR_LOG_ERROR("schedule_work failed!\n");
-	}
+	struct pa224_data *data = handle;
+	struct i2c_client *client = data->client;
+
+	wake_lock_timeout(&data->pa224_wake_lock, msecs_to_jiffies(1000));
+	pa224_check_intr(client);
+
 	return IRQ_HANDLED;
 }
 static int pa224_open(struct inode *inode, struct file *file)
@@ -1636,9 +1647,9 @@ static int pa224_probe(struct i2c_client *client,
 	irq_set_irq_wake(client->irq, 1);
 	/*Interrupt Regist*/
 	if (!PS_POLLING ) {	
-		err = request_irq(data->irq, pa224_irq,
+		err = request_threaded_irq(data->irq, NULL, pa224_irq,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				PA224_DRV_NAME, (void *)client);
+				PA224_DRV_NAME, data);
 
 		if (err) {
 			SENSOR_LOG_INFO("Could not get IRQ\n");
