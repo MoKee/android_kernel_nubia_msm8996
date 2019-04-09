@@ -239,8 +239,6 @@ struct cfs_bandwidth {
 	/* statistics */
 	int nr_periods, nr_throttled;
 	u64 throttled_time;
-
-	bool distribute_running;
 #endif
 };
 
@@ -1021,11 +1019,7 @@ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
 	 * per-task data have been completed by this moment.
 	 */
 	smp_wmb();
-#ifdef CONFIG_THREAD_INFO_IN_TASK
-	p->cpu = cpu;
-#else
 	task_thread_info(p)->cpu = cpu;
-#endif
 	p->wake_cpu = cpu;
 #endif
 }
