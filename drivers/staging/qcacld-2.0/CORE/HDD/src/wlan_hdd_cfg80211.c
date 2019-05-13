@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -112,6 +112,7 @@
 #include "csrApi.h"
 
 #include "wmi_unified_priv.h"
+#include "limSessionUtils.h"
 
 #define g_mode_rates_size (12)
 #define a_mode_rates_size (8)
@@ -439,6 +440,7 @@ wlan_hdd_txrx_stypes[NUM_NL80211_IFTYPES] = {
         .tx = 0xffff,
         .rx = BIT(SIR_MAC_MGMT_ACTION) |
             BIT(SIR_MAC_MGMT_TIME_ADVERT) |
+            BIT(SIR_MAC_MGMT_AUTH) |
             BIT(SIR_MAC_MGMT_PROBE_REQ),
     },
     [NL80211_IFTYPE_AP] = {
@@ -6647,8 +6649,34 @@ static int __wlan_hdd_cfg80211_ll_stats_ext_set_param(struct wiphy *wiphy,
 	/* period==0. Just disable mac counter */
 	if (thresh.period == 0) {
 		hddLog(VOS_TRACE_LEVEL_INFO,
-		       FL("Mac counter will be disaabled"));
+		       FL("Mac counter will be disabled, reset max_sap_peers"));
+		if (ccmCfgSetInt(hdd_ctx->hHal, WNI_CFG_ASSOC_STA_LIMIT_AP,
+				 hdd_ctx->cfg_ini->max_sap_peers, NULL,
+				 eANI_BOOLEAN_FALSE)
+		    == eHAL_STATUS_FAILURE)
+			hddLog(LOGE, "can't pass WNI_CFG_ASSOC_STA_LIMIT_AP to CCM");
 		goto set_param;
+	} else {
+#define MAC_COUNTER_MAX_PEER 2
+		tpAniSirGlobal mac = (tpAniSirGlobal)hdd_ctx->hHal;
+		uint32_t cur_peer_num = peGetCurrentSTAsCount(mac);
+		if (cur_peer_num > MAC_COUNTER_MAX_PEER) {
+			hddLog(LOGE, ("MAC counter can only support %d peers, current peer number is %d"),
+			       MAC_COUNTER_MAX_PEER, cur_peer_num);
+			return -ENOMEM;
+		}
+
+		if (ccmCfgSetInt(hdd_ctx->hHal, WNI_CFG_ASSOC_STA_LIMIT_AP,
+				 MAC_COUNTER_MAX_PEER, NULL, eANI_BOOLEAN_FALSE)
+			== eHAL_STATUS_FAILURE)
+			hddLog(LOGE,"can't pass WNI_CFG_ASSOC_STA_LIMIT_AP to CCM");
+		else
+			hddLog(VOS_TRACE_LEVEL_INFO,
+			       FL("limit MAX peer count to %d"),
+			          MAC_COUNTER_MAX_PEER);
+
+		hddLog(VOS_TRACE_LEVEL_INFO,
+		       FL("MAC counter enabled"));
 	}
 
 	/* global thresh is not enabled */
@@ -7103,13 +7131,22 @@ static int put_wifi_signal_info(struct sir_wifi_peer_signal_stats *peer_signal,
 {
 	uint32_t i, chain_count;
 	struct nlattr *chains, *att;
+	v_CONTEXT_t vos_context = vos_get_global_context(0, NULL);
+	hdd_context_t *hdd_ctx;
+
+	hdd_ctx = vos_get_context(VOS_MODULE_ID_HDD, vos_context);
 
 	/* There might be no signal info for a peer */
 	if (peer_signal == NULL)
 		return 0;
 
-	chain_count = peer_signal->num_chain < WIFI_MAX_CHAINS ?
-		      peer_signal->num_chain : WIFI_MAX_CHAINS;
+	if ((!hdd_ctx) || (hdd_ctx->cfg_ini->per_chain_stats_enabled == 0))
+		chain_count = WIFI_MAX_CHAINS;
+	else
+		chain_count = peer_signal->num_chain < WIFI_MAX_CHAINS ?
+			      peer_signal->num_chain : WIFI_MAX_CHAINS;
+
+	hddLog(LOG2, FL("chain_count=%d"), chain_count);
 	if (nla_put_u32(skb,
 			QCA_WLAN_VENDOR_ATTR_LL_STATS_EXT_PEER_ANT_NUM,
 			chain_count)) {
@@ -13685,7 +13722,8 @@ static int wlan_hdd_cfg80211_sta_roam_policy(struct wiphy *wiphy,
 static int hdd_validate_avoid_freq_chanlist(hdd_context_t *hdd_ctx,
 					    tHddAvoidFreqList *channel_list)
 {
-	unsigned int range_idx, ch_idx;
+	unsigned int range_idx;
+	uint8_t ch_idx;
 	unsigned int unsafe_channel_index, unsafe_channel_count = 0;
 	bool ch_found = false;
 
@@ -13702,9 +13740,14 @@ static int hdd_validate_avoid_freq_chanlist(hdd_context_t *hdd_ctx,
 		     channel_list->avoidFreqRange[range_idx].endFreq))
 				continue;
 
-		for (ch_idx = channel_list->avoidFreqRange[range_idx].startFreq;
-		     ch_idx <= channel_list->avoidFreqRange[range_idx].endFreq;
+		for (ch_idx =
+		     (uint8_t)channel_list->avoidFreqRange[range_idx].startFreq;
+		     ch_idx <=
+		     (uint8_t)channel_list->avoidFreqRange[range_idx].endFreq;
 		     ch_idx++) {
+			if (INVALID_RF_CHANNEL ==
+						wlan_hdd_get_chan_enum(ch_idx))
+				continue;
 			for (unsafe_channel_index = 0;
 			     unsafe_channel_index < unsafe_channel_count;
 			     unsafe_channel_index++) {
@@ -14139,12 +14182,14 @@ static int hdd_convert_auth_type(uint32_t auth_type)
 	case eCSR_AUTH_TYPE_WAPI_WAI_PSK:
 		ret_val = QCA_WLAN_AUTH_TYPE_WAI_PSK;
 		break;
+#ifdef WLAN_FEATURE_11W
 	case eCSR_AUTH_TYPE_RSN_PSK_SHA256:
 		ret_val = QCA_WLAN_AUTH_TYPE_SHA256_PSK;
 		break;
 	case eCSR_AUTH_TYPE_RSN_8021X_SHA256:
 		ret_val = QCA_WLAN_AUTH_TYPE_SHA256;
 		break;
+#endif
 	case eCSR_NUM_OF_SUPPORT_AUTH_TYPE:
 	case eCSR_AUTH_TYPE_FAILED:
 	case eCSR_AUTH_TYPE_NONE:
@@ -16159,6 +16204,30 @@ hdd_wiphy_set_max_sched_scans(struct wiphy *wiphy, uint8_t max_scans)
 }
 #endif /* KERNEL_VERSION(4, 12, 0) */
 
+#if defined(WLAN_FEATURE_SAE) && \
+	defined(CFG80211_EXTERNAL_AUTH_SUPPORT)
+/**
+ * wlan_hdd_cfg80211_set_wiphy_sae_feature() - Indicates support of SAE feature
+ * @wiphy: Pointer to wiphy
+ * @config: pointer to config
+ *
+ * This function is used to indicate the support of SAE
+ *
+ * Return: None
+ */
+static void wlan_hdd_cfg80211_set_wiphy_sae_feature(struct wiphy *wiphy,
+						    struct hdd_config *config)
+{
+	if (config->is_sae_enabled)
+		wiphy->features |= NL80211_FEATURE_SAE;
+}
+#else
+static void wlan_hdd_cfg80211_set_wiphy_sae_feature(struct wiphy *wiphy,
+						    struct hdd_config *config)
+{
+}
+#endif
+
 /*
  * FUNCTION: wlan_hdd_cfg80211_init
  * This function is called by hdd_wlan_startup()
@@ -16233,6 +16302,8 @@ int wlan_hdd_cfg80211_init(struct device *dev,
 #endif
 
     wiphy->features |= NL80211_FEATURE_HT_IBSS;
+
+    wlan_hdd_cfg80211_set_wiphy_sae_feature(wiphy, pCfg);
 
 #ifdef FEATURE_WLAN_SCAN_PNO
     if (pCfg->configPNOScanSupport)
@@ -22283,6 +22354,7 @@ bool hdd_isConnectionInProgress(hdd_context_t *pHddCtx, v_U8_t *session_id,
 	hdd_adapter_list_node_t *pAdapterNode = NULL, *pNext = NULL;
 	hdd_adapter_t *pAdapter = NULL;
 	VOS_STATUS status = 0;
+	bool ret = false;
 
 	if (TRUE == pHddCtx->btCoexModeSet) {
 		hddLog(LOG1, FL("BTCoex Mode operation in progress"));
@@ -22295,8 +22367,11 @@ bool hdd_isConnectionInProgress(hdd_context_t *pHddCtx, v_U8_t *session_id,
 		pAdapter = pAdapterNode->pAdapter;
 
 		if (pAdapter)
-			hdd_check_connection_status(pAdapter, session_id,
-						    reason);
+			ret = hdd_check_connection_status(pAdapter, session_id,
+							  reason);
+		if (ret)
+			return ret;
+
 		status = hdd_get_next_adapter(pHddCtx, pAdapterNode, &pNext);
 		pAdapterNode = pNext;
 	}
@@ -23676,6 +23751,12 @@ static int wlan_hdd_cfg80211_set_auth_type(hdd_adapter_t *pAdapter,
             pHddStaCtx->conn_info.authType = eCSR_AUTH_TYPE_OPEN_SYSTEM;
             break;
 #endif
+
+        case NL80211_AUTHTYPE_SAE:
+            hddLog(LOG1, "set authentication type to SAE");
+            pHddStaCtx->conn_info.authType = eCSR_AUTH_TYPE_SAE;
+            break;
+
         default:
             hddLog(VOS_TRACE_LEVEL_ERROR,
                     "%s: Unsupported authentication type %d", __func__,
@@ -23818,6 +23899,16 @@ static int wlan_hdd_set_akm_suite( hdd_adapter_t *pAdapter,
                 eCSR_AUTH_TYPE_FT_FILS_SHA384;
             break;
 #endif
+
+        case WLAN_AKM_SUITE_SAE:
+            hddLog(LOG1, "setting key mgmt type to SAE");
+            pWextState->authKeyMgmt |= IW_AUTH_KEY_MGMT_802_1X;
+            break;
+
+        case WLAN_AKM_SUITE_OWE:
+            hddLog(LOG1, "setting key mgmt type to OWE");
+            pWextState->authKeyMgmt |= IW_AUTH_KEY_MGMT_802_1X;
+            break;
 
         default:
             hddLog(VOS_TRACE_LEVEL_ERROR, "%s: Unsupported key mgmt type %d",
@@ -24196,6 +24287,30 @@ int wlan_hdd_cfg80211_set_ie(hdd_adapter_t *pAdapter,
                 }
                 break;
 #endif
+            case SIR_MAC_REQUEST_EID_MAX:
+                if (genie[0] ==
+                    SIR_DH_PARAMETER_ELEMENT_EXT_EID) {
+                    v_U16_t curAddIELen = pWextState->assocAddIE.length;
+                    if (SIR_MAC_MAX_ADD_IE_LENGTH <
+                        (pWextState->assocAddIE.length + eLen))
+                    {
+                       hddLog(VOS_TRACE_LEVEL_FATAL, "Cannot accommodate assocAddIE "
+                                                      "Need bigger buffer space");
+                       VOS_ASSERT(0);
+                       return -ENOMEM;
+                    }
+                    hddLog(VOS_TRACE_LEVEL_INFO, "Set DH EXT IE(len %d)",
+                               eLen + 2);
+                    memcpy( pWextState->assocAddIE.addIEdata + curAddIELen, genie - 2, eLen + 2);
+                    pWextState->assocAddIE.length += eLen + 2;
+
+                    pWextState->roamProfile.pAddIEAssoc = pWextState->assocAddIE.addIEdata;
+                    pWextState->roamProfile.nAddIEAssocLength = pWextState->assocAddIE.length;
+                } else {
+                    hddLog(VOS_TRACE_LEVEL_FATAL, "UNKNOWN EID: %X", genie[0]);
+                }
+                break;
+
             default:
                 hddLog (VOS_TRACE_LEVEL_ERROR,
                         "%s Set UNKNOWN IE %X", __func__, elementId);
@@ -26917,7 +27032,6 @@ static int __wlan_hdd_cfg80211_get_station(struct wiphy *wiphy,
 {
     hdd_adapter_t *pAdapter = WLAN_HDD_GET_PRIV_PTR( dev );
     hdd_station_ctx_t *pHddStaCtx = WLAN_HDD_GET_STATION_CTX_PTR(pAdapter);
-    int ssidlen = pHddStaCtx->conn_info.SSID.SSID.length;
     tANI_U8 rate_flags;
 
     hdd_context_t *pHddCtx = (hdd_context_t*) wiphy_priv(wiphy);
@@ -26967,11 +27081,9 @@ static int __wlan_hdd_cfg80211_get_station(struct wiphy *wiphy,
             return wlan_hdd_get_sap_stats(pAdapter, sinfo);
     }
 
-    if ((eConnectionState_Associated != pHddStaCtx->conn_info.connState) ||
-            (0 == ssidlen))
+    if (eConnectionState_Associated != pHddStaCtx->conn_info.connState)
     {
-        hddLog(VOS_TRACE_LEVEL_INFO, "%s: Not associated or"
-                    " Invalid ssidlen, %d", __func__, ssidlen);
+        hddLog(VOS_TRACE_LEVEL_INFO, "%s: Not associated", __func__);
         /*To keep GUI happy*/
         return 0;
     }
@@ -28330,6 +28442,65 @@ static int wlan_hdd_cfg80211_flush_pmksa(struct wiphy *wiphy,
     vos_ssr_unprotect(__func__);
 
     return ret;
+}
+#endif
+
+#if defined(WLAN_FEATURE_SAE) && \
+	defined(CFG80211_EXTERNAL_AUTH_SUPPORT)
+/**
+ * __wlan_hdd_cfg80211_external_auth() - Handle external auth
+ * @wiphy: Pointer to wireless phy
+ * @dev: net device
+ * @params: Pointer to external auth params
+ *
+ * Return: 0 on success, negative errno on failure
+ */
+static int
+__wlan_hdd_cfg80211_external_auth(struct wiphy *wiphy,
+				struct net_device *dev,
+				struct cfg80211_external_auth_params *params)
+{
+	hdd_context_t *hdd_ctx = wiphy_priv(wiphy);
+	hdd_adapter_t *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
+	int ret;
+
+	if (hdd_get_conparam() == VOS_FTM_MODE) {
+		hddLog(VOS_TRACE_LEVEL_ERROR,
+			FL("Command not allowed in FTM mode"));
+		return -EPERM;
+	}
+
+	ret = wlan_hdd_validate_context(hdd_ctx);
+	if (ret)
+		return ret;
+
+	hddLog(VOS_TRACE_LEVEL_DEBUG,
+		FL("external_auth status: %d"), params->status);
+	sme_handle_sae_msg(hdd_ctx->hHal, adapter->sessionId, params->status);
+
+	return ret;
+}
+
+/**
+ * wlan_hdd_cfg80211_external_auth() - Handle external auth
+ * @wiphy: Pointer to wireless phy
+ * @dev: net device
+ * @params: Pointer to external auth params
+ *
+ * Return: 0 on success, negative errno on failure
+ */
+static int
+wlan_hdd_cfg80211_external_auth(struct wiphy *wiphy,
+				struct net_device *dev,
+				struct cfg80211_external_auth_params *params)
+{
+	int ret;
+
+	vos_ssr_protect(__func__);
+	ret = __wlan_hdd_cfg80211_external_auth(wiphy, dev, params);
+	vos_ssr_unprotect(__func__);
+
+	return ret;
 }
 #endif
 
@@ -31094,6 +31265,14 @@ int wlan_hdd_cfg80211_resume_wlan(struct wiphy *wiphy)
     hdd_context_t *hdd_ctx = wiphy_priv(wiphy);
     int ret;
 
+    if (0 != hdd_ctx->cfg_ini->sleep_power_mode) {
+        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
+                  "%s: wlan has already been reinited when it is not "
+                  "worked on default sleep power mode, so skip to do "
+                  "wlan cfg80211 resume in this case.", __func__);
+        return 0;
+    }
+
     vos_ssr_protect(__func__);
     ret = __wlan_hdd_cfg80211_resume_wlan(wiphy, false);
     hdd_system_suspend_state_set(hdd_ctx, false);
@@ -31366,6 +31545,15 @@ int wlan_hdd_cfg80211_suspend_wlan(struct wiphy *wiphy,
 {
     hdd_context_t *hdd_ctx = wiphy_priv(wiphy);
     int ret;
+
+    if (0 != hdd_ctx->cfg_ini->sleep_power_mode) {
+        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
+                  "%s: wlan will do shutdown and reinit when suspend "
+                  "and resume if default sleep power mode changed, so "
+                  "skip to do wlan cfg80211 suspend in this case.",
+                  __func__);
+        return 0;
+    }
 
     vos_ssr_protect(__func__);
     ret = __wlan_hdd_cfg80211_suspend_wlan(wiphy, wow, false);
@@ -32959,5 +33147,9 @@ static struct cfg80211_ops wlan_hdd_cfg80211_ops =
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)) || \
     defined(CFG80211_ABORT_SCAN)
      .abort_scan = wlan_hdd_cfg80211_abort_scan,
+#endif
+#if defined(WLAN_FEATURE_SAE) && \
+    defined(CFG80211_EXTERNAL_AUTH_SUPPORT)
+    .external_auth = wlan_hdd_cfg80211_external_auth,
 #endif
 };

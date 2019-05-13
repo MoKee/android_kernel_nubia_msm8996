@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -1588,6 +1588,26 @@ typedef enum
 
 /*
  * <ini>
+ * g_mcs_tx_force2chain - force tx use 2 chain
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini is used to configure force tx use 2 chain
+ * is peer device support 2*2 even our device only
+ * support mcs0~mcs7.
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_MCS_TX_FORCE2CHAIN_NAME      "g_mcs_tx_force2chain"
+#define CFG_MCS_TX_FORCE2CHAIN_DISABLE   ( 0 )
+#define CFG_MCS_TX_FORCE2CHAIN_ENABLE    ( 1 )
+#define CFG_MCS_TX_FORCE2CHAIN_DEFAULT   ( 0 )
+
+/*
+ * <ini>
  * gSapGetPeerInfo - Enable/Disable remote peer info query support
  * @Min: 0 - Disable remote peer info query support
  * @Max: 1 - Enable remote peer info query support
@@ -2949,6 +2969,48 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
 #define CFG_P2P_LISTEN_OFFLOAD_ENABLE                   ( 1 )
 #define CFG_P2P_LISTEN_OFFLOAD_DEFAULT                  ( CFG_P2P_LISTEN_OFFLOAD_DISABLE )
 
+#ifdef CONFIG_GPIO_OOB
+/*
+ * <ini>
+ * goob_gpio_num - OOB GPIO NUM
+ * @Min: 0
+ * @Max: 255
+ * @Default: 255
+ *
+ * This ini is used to config OOB GPIO NUM
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+
+#define CFG_ENABLE_OOB_GPIO_NUM_NAME             "goob_gpio_num"
+#define CFG_ENABLE_OOB_GPIO_NUM_MIN              (0)
+#define CFG_ENABLE_OOB_GPIO_NUM_MAX              (255)
+#define CFG_ENABLE_OOB_GPIO_NUM_DEFAULT          (CFG_ENABLE_OOB_GPIO_NUM_MAX)
+
+/*
+ * <ini>
+ * goob_gpio_flag - OOB GPIO flag
+ *                  bit 0 - enable OOB wake up
+ *                  bit 1 - enable OOB interrupt
+ * @Min: 0
+ * @Max: 3
+ * @Default: 0
+ *
+ * This ini is used to enable OOB GPIO feature
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+
+#define CFG_ENABLE_OOB_GPIO_FLAG_NAME            "goob_gpio_flag"
+#define CFG_ENABLE_OOB_GPIO_FLAG_MIN             (0)
+#define CFG_ENABLE_OOB_GPIO_FLAG_MAX             (3)
+#define CFG_ENABLE_OOB_GPIO_FLAG_DEFAULT         (0)
+#endif
+
 /*
  * Firmware uart print
  */
@@ -4158,7 +4220,26 @@ FG_BTC_BT_INTERVAL_PAGE_P2P_STA_DEFAULT
 #define CFG_SET_TSF_GPIO_PIN_HOST_NAME                  "gtsf_gpio_pin_host"
 #define CFG_SET_TSF_GPIO_PIN_HOST_MIN                   (0)
 #define CFG_SET_TSF_GPIO_PIN_HOST_MAX                   (254)
-#define CFG_SET_TSF_GPIO_PIN_HOST_DEFAULT               (45)
+#define CFG_SET_TSF_GPIO_PIN_HOST_DEFAULT               (TSF_GPIO_PIN_INVALID)
+
+/*
+ * <ini>
+ * gtsf_by_register - get tsf by register
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini is used to get tsf by register
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+
+#define CFG_GET_TSF_BY_REGISTER_NAME                  "gtsf_by_register"
+#define CFG_GET_TSF_BY_REGISTER_MIN                   (0)
+#define CFG_GET_TSF_BY_REGISTER_MAX                   (1)
+#define CFG_GET_TSF_BY_REGISTER_DEFAULT               (0)
 
 #ifdef WLAN_FEATURE_TSF_PLUS
 /* PTP options */
@@ -5508,6 +5589,77 @@ FG_BTC_BT_INTERVAL_PAGE_P2P_STA_DEFAULT
 #define CFG_ENABLE_BCAST_PROBE_RESP_MAX     (1)
 #define CFG_ENABLE_BCAST_PROBE_RESP_DEFAULT (0)
 
+/*
+ * <ini>
+ * gChangeSleepPowerMode - Change suspend/resume mode.
+ * @Min: 0
+ * @Max: 2
+ * @Default: 0
+ *
+ * This ini is used to set WLAN chipset suspend/resume mode
+ * 0: do not change sleep power mode
+ * 1: wlan chip reset when do suspend/resume
+ * 2: wlan chip cut power when suspend
+ * others: invalid
+ *
+ * Related: None
+ *
+ * Usage: Internal/External
+ *
+ * </ini>
+ */
+
+#define CFG_SLEEP_POWER_MODE_NAME    "gChangeSleepPowerMode"
+#define CFG_SLEEP_POWER_MODE_MIN     (0)
+#define CFG_SLEEP_POWER_MODE_MAX     (2)
+#define CFG_SLEEP_POWER_MODE_DEFAULT (0)
+
+/*
+ * <ini>
+ * sae_enabled - Enable/Disable SAE support in driver
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini is used to enable/disable SAE support in driver
+ * Driver will update config to supplicant based on this config.
+ *
+ * Related: None
+ *
+ * Supported Feature: SAE
+ * Usage: External
+ *
+ * </ini>
+ */
+
+#define CFG_IS_SAE_ENABLED_NAME    "sae_enabled"
+#define CFG_IS_SAE_ENABLED_DEFAULT (1)
+#define CFG_IS_SAE_ENABLED_MIN     (0)
+#define CFG_IS_SAE_ENABLED_MAX     (1)
+
+/*
+ * <ini>
+ * per_chain_stats - Enable/Disable per antenna LL stats
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini is used to enable/disable per antenna LL stats.
+ * When antenna diversity is enabled this should be set to 1.
+ *
+ * Related: None
+ *
+ * Supported Feature: antenna diversity
+ * Usage: External
+ *
+ * </ini>
+ */
+
+#define CFG_IS_PER_CHAIN_STATS_ENABLED_NAME    "per_chain_stats"
+#define CFG_IS_PER_CHAIN_STATS_ENABLED_DEFAULT (0)
+#define CFG_IS_PER_CHAIN_STATS_ENABLED_MIN     (0)
+#define CFG_IS_PER_CHAIN_STATS_ENABLED_MAX     (1)
+
 /*---------------------------------------------------------------------------
   Type declarations
   -------------------------------------------------------------------------*/
@@ -5962,6 +6114,10 @@ struct hdd_config {
    v_BOOL_t                    enableTCPChkSumOffld;
    v_BOOL_t                    enableIPChecksumOffload;
    v_BOOL_t                    enablePowersaveOffload;
+#ifdef CONFIG_GPIO_OOB
+   v_U32_t                     oob_gpio_num;
+   v_U32_t                     oob_gpio_flag;
+#endif
    v_BOOL_t                    enablefwprint;
    v_BOOL_t                    enablefwlog;
    v_BOOL_t                    fastfwdump;
@@ -6034,6 +6190,7 @@ struct hdd_config {
    uint8_t                     enable_rts_sifsbursting;
    uint8_t                     max_mpdus_inampdu;
    uint16_t                    max_ht_mcs_txdata;
+   bool                        mcs_tx_force2chain;
    bool                        sap_get_peer_info;
    bool                        disable_abg_rate_txdata;
    uint8_t                     rate_for_tx_mgmt;
@@ -6266,6 +6423,7 @@ struct hdd_config {
 #ifdef WLAN_FEATURE_TSF
    uint32_t                    tsf_gpio_pin;
    uint32_t                    tsf_gpio_pin_host;
+   uint8_t                     tsf_by_register;
 #ifdef WLAN_FEATURE_TSF_PLUS
    uint8_t                     tsf_ptp_options;
 #endif /* WLAN_FEATURE_TSF_PLUS */
@@ -6430,6 +6588,11 @@ struct hdd_config {
    uint32_t dpd_recalib_cooling_time;
    uint32_t dpd_recalib_duration_max;
    bool enable_bcast_probe_rsp;
+   uint32_t sleep_power_mode;
+#ifdef WLAN_FEATURE_SAE
+   bool is_sae_enabled;
+#endif
+   bool per_chain_stats_enabled;
 };
 
 typedef struct hdd_config hdd_config_t;

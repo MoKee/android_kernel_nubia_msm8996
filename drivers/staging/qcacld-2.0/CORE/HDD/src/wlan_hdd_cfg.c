@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -2428,6 +2428,13 @@ REG_TABLE_ENTRY g_registry_table[] =
                  CFG_MAX_HT_MCS_FOR_TX_DATA_MIN,
                  CFG_MAX_HT_MCS_FOR_TX_DATA_MAX),
 
+   REG_VARIABLE(CFG_MCS_TX_FORCE2CHAIN_NAME, WLAN_PARAM_Integer,
+                hdd_config_t, mcs_tx_force2chain,
+                VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                CFG_MCS_TX_FORCE2CHAIN_DEFAULT,
+                CFG_MCS_TX_FORCE2CHAIN_DISABLE,
+                CFG_MCS_TX_FORCE2CHAIN_ENABLE),
+
    REG_VARIABLE(CFG_SAP_GET_PEER_INFO, WLAN_PARAM_Integer,
                  hdd_config_t, sap_get_peer_info,
                  VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
@@ -2953,6 +2960,22 @@ REG_TABLE_ENTRY g_registry_table[] =
                  CFG_POWERSAVE_OFFLOAD_DEFAULT,
                  CFG_POWERSAVE_OFFLOAD_MIN,
                  CFG_POWERSAVE_OFFLOAD_MAX ),
+
+#ifdef CONFIG_GPIO_OOB
+   REG_VARIABLE(CFG_ENABLE_OOB_GPIO_FLAG_NAME, WLAN_PARAM_Integer,
+                hdd_config_t, oob_gpio_flag,
+                VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK,
+                CFG_ENABLE_OOB_GPIO_FLAG_DEFAULT,
+                CFG_ENABLE_OOB_GPIO_FLAG_MIN,
+                CFG_ENABLE_OOB_GPIO_FLAG_MAX),
+
+   REG_VARIABLE(CFG_ENABLE_OOB_GPIO_NUM_NAME, WLAN_PARAM_Integer,
+                hdd_config_t, oob_gpio_num,
+                VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK,
+                CFG_ENABLE_OOB_GPIO_NUM_DEFAULT,
+                CFG_ENABLE_OOB_GPIO_NUM_MIN,
+                CFG_ENABLE_OOB_GPIO_NUM_MAX),
+#endif
 
    REG_VARIABLE( CFG_ENABLE_FW_UART_PRINT_NAME, WLAN_PARAM_Integer,
                  hdd_config_t, enablefwprint,
@@ -4571,6 +4594,13 @@ REG_TABLE_ENTRY g_registry_table[] =
                 CFG_SET_TSF_GPIO_PIN_HOST_MIN,
                 CFG_SET_TSF_GPIO_PIN_HOST_MAX),
 
+   REG_VARIABLE(CFG_GET_TSF_BY_REGISTER_NAME, WLAN_PARAM_Integer,
+                hdd_config_t, tsf_by_register,
+                VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                CFG_GET_TSF_BY_REGISTER_DEFAULT,
+                CFG_GET_TSF_BY_REGISTER_MIN,
+                CFG_GET_TSF_BY_REGISTER_MAX),
+
    REG_VARIABLE(CFG_SET_TSF_GPIO_PIN_NAME, WLAN_PARAM_Integer,
                 hdd_config_t, tsf_gpio_pin,
                 VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
@@ -5415,6 +5445,28 @@ REG_TABLE_ENTRY g_registry_table[] =
 		CFG_ENABLE_BCAST_PROBE_RESP_DEFAULT,
 		CFG_ENABLE_BCAST_PROBE_RESP_MIN,
 		CFG_ENABLE_BCAST_PROBE_RESP_MAX),
+
+	REG_VARIABLE(CFG_SLEEP_POWER_MODE_NAME, WLAN_PARAM_Integer,
+		struct hdd_config, sleep_power_mode,
+		VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+		CFG_SLEEP_POWER_MODE_DEFAULT,
+		CFG_SLEEP_POWER_MODE_MIN,
+		CFG_SLEEP_POWER_MODE_MAX),
+
+#ifdef WLAN_FEATURE_SAE
+	REG_VARIABLE(CFG_IS_SAE_ENABLED_NAME, WLAN_PARAM_Integer,
+		struct hdd_config, is_sae_enabled,
+		VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+		CFG_IS_SAE_ENABLED_DEFAULT,
+		CFG_IS_SAE_ENABLED_MIN,
+		CFG_IS_SAE_ENABLED_MAX),
+#endif
+	REG_VARIABLE(CFG_IS_PER_CHAIN_STATS_ENABLED_NAME, WLAN_PARAM_Integer,
+		struct hdd_config, per_chain_stats_enabled,
+		VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+		CFG_IS_SAE_ENABLED_DEFAULT,
+		CFG_IS_SAE_ENABLED_MIN,
+		CFG_IS_SAE_ENABLED_MAX),
 };
 
 
@@ -5596,7 +5648,7 @@ VOS_STATUS hdd_parse_config_ini(hdd_context_t* pHddCtx)
 
    memset(cfgIniTable, 0, sizeof(cfgIniTable));
 
-   status = request_firmware(&fw, WLAN_INI_FILE, pHddCtx->parent_dev);
+   status = qca_request_firmware(&fw, WLAN_INI_FILE, pHddCtx->parent_dev);
 
    if(status)
    {
@@ -5683,6 +5735,18 @@ config_exit:
    return vos_status;
 }
 
+#ifdef WLAN_FEATURE_SAE
+static void hdd_cfg_print_sae(hdd_context_t *hdd_ctx)
+{
+	hddLog(LOG2, "Name = [%s] value = [%u]",
+	       CFG_IS_SAE_ENABLED_NAME,
+	       hdd_ctx->cfg_ini->is_sae_enabled);
+}
+#else
+static void hdd_cfg_print_sae(hdd_context_t *hdd_ctx)
+{
+}
+#endif
 
 void print_hdd_cfg(hdd_context_t *pHddCtx)
 {
@@ -6308,6 +6372,10 @@ void print_hdd_cfg(hdd_context_t *pHddCtx)
          CFG_STA_CHANGE_COUNTRYCODE_DYN_NAME ,
          pHddCtx->cfg_ini->sta_change_cc_via_beacon);
 
+  hddLog(LOGE, "Name = [%s] Value = [%u]",
+         CFG_MCS_TX_FORCE2CHAIN_NAME ,
+         pHddCtx->cfg_ini->mcs_tx_force2chain);
+
 
   hdd_ndp_print_ini_config(pHddCtx);
 
@@ -6356,8 +6424,13 @@ void print_hdd_cfg(hdd_context_t *pHddCtx)
                pHddCtx->cfg_ini->probe_req_ouis);
 
   hddLog(LOG2, "Name = [%s] Value = [%u]",
+               CFG_SLEEP_POWER_MODE_NAME,
+               pHddCtx->cfg_ini->sleep_power_mode);
+
+  hddLog(LOG2, "Name = [%s] Value = [%u]",
                  CFG_ARP_AC_CATEGORY,
                  pHddCtx->cfg_ini->arp_ac_category);
+  hdd_cfg_print_sae(pHddCtx);
 }
 
 #define CFG_VALUE_MAX_LEN 256
@@ -6560,7 +6633,7 @@ VOS_STATUS hdd_update_mac_config(hdd_context_t *pHddCtx)
    VOS_STATUS vos_status = VOS_STATUS_SUCCESS;
 
    memset(macTable, 0, sizeof(macTable));
-   status = request_firmware(&fw, WLAN_MAC_FILE, pHddCtx->parent_dev);
+   status = qca_request_firmware(&fw, WLAN_MAC_FILE, pHddCtx->parent_dev);
 
    if (status)
    {
@@ -8490,6 +8563,9 @@ VOS_STATUS hdd_set_sme_config( hdd_context_t *pHddCtx )
 
    smeConfig->sta_change_cc_via_beacon =
 	 pHddCtx->cfg_ini->sta_change_cc_via_beacon;
+
+   smeConfig->mcs_tx_force2chain =
+	 pHddCtx->cfg_ini->mcs_tx_force2chain;
 
 #ifdef WLAN_FEATURE_SAP_TO_FOLLOW_STA_CHAN
    smeConfig->csrConfig.sap_ch_switch_with_csa = pHddCtx->cfg_ini->sap_ch_switch_with_csa;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -1973,6 +1973,7 @@ int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
     uint8_t home_ch = 0;
     bool enb_random_mac = false;
     uint32_t mgmt_hdr_len = sizeof(struct ieee80211_hdr_3addr);
+    eHalStatus hal_status;
 
     ENTER();
 
@@ -2000,6 +2001,22 @@ int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
     hddLog(LOG1, FL("Device_mode %s(%d) type: %d"),
            hdd_device_mode_to_string(pAdapter->device_mode),
            pAdapter->device_mode, type);
+
+    /* When frame to be transmitted is auth mgmt, then trigger
+     * sme_send_mgmt_tx to send auth frame without need for policy manager.
+     * Where as wlan_cfg80211_mgmt_tx requires roc and requires approval
+     * from policy manager
+     */
+    if ((WLAN_HDD_INFRA_STATION == pAdapter->device_mode) &&
+        (type == SIR_MAC_MGMT_FRAME &&
+        subType == SIR_MAC_MGMT_AUTH)) {
+        hal_status = sme_send_mgmt_tx(WLAN_HDD_GET_HAL_CTX(pAdapter),
+                                     pAdapter->sessionId, buf, len);
+        if (HAL_STATUS_SUCCESS(hal_status))
+           return 0;
+        else
+           return -EINVAL;
+    }
 
     if (type == SIR_MAC_MGMT_FRAME && subType == SIR_MAC_MGMT_ACTION &&
         len > IEEE80211_MIN_ACTION_SIZE)
@@ -2068,11 +2085,13 @@ int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
         mutex_unlock(&cfgState->remain_on_chan_ctx_lock);
     }
 
+#ifndef SUPPORT_P2P_BY_ONE_INTF_WLAN
     if ((WLAN_HDD_INFRA_STATION == pAdapter->device_mode) &&
        (type == SIR_MAC_MGMT_FRAME && subType == SIR_MAC_MGMT_PROBE_RSP)) {
         /* Drop Probe response recieved from supplicant in sta mode */
         goto err_rem_channel;
     }
+#endif
 
     //Call sme API to send out a action frame.
     // OR can we send it directly through data path??
